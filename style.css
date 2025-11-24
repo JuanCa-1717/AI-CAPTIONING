@@ -1,0 +1,488 @@
+/* Reset básico */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: #000; /* Solid black background to avoid visible bands */
+  color: #eee;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+  /* Accent color used for buttons and highlights. Updated by profile.js */
+  --accent: #0b4668;
+}
+
+.background-layer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Contenedor para círculos animados */
+.background-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* stronger and larger celeste glows so they read on pure black */
+  background-image: radial-gradient(circle at 8% 18%, rgba(120,220,255,0.22) 0%, rgba(120,220,255,0.12) 10%, transparent 36%),
+                    radial-gradient(circle at 28% 68%, rgba(160,230,255,0.18) 0%, rgba(160,230,255,0.08) 14%, transparent 40%),
+                    radial-gradient(circle at 68% 28%, rgba(130,250,230,0.14) 0%, rgba(130,250,230,0.05) 16%, transparent 42%),
+                    radial-gradient(circle at 86% 76%, rgba(180,230,255,0.14) 0%, rgba(180,230,255,0.05) 18%, transparent 44%);
+  background-repeat: no-repeat;
+  background-size: 60% 60%, 52% 52%, 46% 46%, 40% 40%;
+  mix-blend-mode: screen;
+  /* stronger blur for the soft, out-of-focus look */
+  filter: blur(58px) saturate(108%);
+  animation: moveBackgroundA 30s linear infinite, flickerA 7.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* second layer of lights to create independent movement and flicker */
+.background-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 18% 28%, rgba(120,210,255,0.18) 0%, rgba(120,210,255,0.08) 12%, transparent 38%),
+                    radial-gradient(circle at 52% 12%, rgba(200,230,255,0.14) 0%, rgba(200,230,255,0.05) 14%, transparent 40%),
+                    radial-gradient(circle at 74% 62%, rgba(110,240,210,0.12) 0%, rgba(110,240,210,0.04) 16%, transparent 42%);
+  background-repeat: no-repeat;
+  background-size: 56% 56%, 46% 46%, 40% 40%;
+  mix-blend-mode: screen;
+  /* softer, secondary layer with its own movement and flicker */
+  filter: blur(44px) saturate(102%);
+  animation: moveBackgroundB 38s linear infinite, flickerB 9s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.9;
+}
+
+/* Animación suave de movimiento lento */
+@keyframes moveBackground {
+  0% {
+    background-position: 0% 0%, 50% 50%, 100% 100%;
+  }
+  50% {
+    background-position: 10% 10%, 40% 40%, 90% 90%;
+  }
+  100% {
+    background-position: 0% 0%, 50% 50%, 100% 100%;
+  }
+}
+
+@keyframes moveBackgroundA {
+  0% { background-position: 5% 8%, 30% 66%, 70% 22%, 85% 72%; }
+  25% { background-position: 18% 6%, 22% 60%, 62% 28%, 80% 62%; }
+  50% { background-position: 12% 22%, 42% 78%, 76% 42%, 92% 82%; }
+  75% { background-position: 6% 34%, 36% 82%, 66% 36%, 78% 70%; }
+  100% { background-position: 5% 8%, 30% 66%, 70% 22%, 85% 72%; }
+}
+
+@keyframes moveBackgroundB {
+  0% { background-position: 20% 30%, 50% 15%, 75% 60%; }
+  25% { background-position: 10% 40%, 55% 10%, 70% 55%; }
+  50% { background-position: 25% 20%, 60% 20%, 80% 65%; }
+  75% { background-position: 30% 35%, 45% 25%, 72% 58%; }
+  100% { background-position: 20% 30%, 50% 15%, 75% 60%; }
+}
+
+/* subtle independent flicker animations to simulate lights turning on/off */
+@keyframes flickerA {
+  0% { opacity: 0.95; }
+  8% { opacity: 0.18; }
+  20% { opacity: 1; }
+  36% { opacity: 0.22; }
+  52% { opacity: 0.95; }
+  72% { opacity: 0.12; }
+  100% { opacity: 0.95; }
+}
+
+@keyframes flickerB {
+  0% { opacity: 0.9; }
+  12% { opacity: 0.14; }
+  30% { opacity: 0.98; }
+  50% { opacity: 0.2; }
+  76% { opacity: 1; }
+  100% { opacity: 0.9; }
+}
+
+/* Respect user's motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .background-layer::before,
+  .background-layer::after {
+    animation: none !important;
+    opacity: 0.6 !important;
+    filter: blur(40px) !important;
+  }
+}
+
+
+/* Contenedor principal con efecto glass */
+.container {
+  position: relative;
+  top: 100px;
+  max-width: 720px;
+  margin: 2rem auto 3rem;
+  padding: 1.5rem 2rem;
+  background: rgba(30, 30, 30, 0.48);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  z-index: 1;
+}
+
+.title {
+  font-weight: 800;
+  font-size: 1.7rem;
+  color: #e5e5e5;
+  text-align: center;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.15); /* glow reducido */
+  margin-bottom: 0.25rem;
+}
+
+/* Panel glass para inputs y panel de AI */
+.glass-panel {
+  background: rgba(40, 40, 40, 0.48);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Inputs */
+.inputs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Language select styling to match the dark glass theme */
+#lang-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #2a2a2a;
+  color: #eee;
+  border: 1px solid #555;
+  padding: 0.45rem 0.9rem;
+  padding-right: 2.4rem; /* space for custom arrow */
+  border-radius: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  width: 220px;
+  max-width: 100%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3) inset;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%23ffffff" d="M7 10l5 5 5-5z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+#lang-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+#lang-select[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.label {
+  font-weight: 600;
+}
+
+.file-input {
+  display: none; /* Oculta input file */
+}
+
+.file-input:hover,
+.file-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Remove manual shifting of copy button; alignment handled by .ai-actions */
+
+
+/* Lista de imágenes subidas */
+.image-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.8rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  max-height: 120px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255 255 255 / 0.1);
+  padding: 0.4rem;
+}
+
+.image-list li {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+
+.image-list img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Área de texto */
+textarea#user-prompt {
+  resize: vertical;
+  min-height: 100px;
+  border-radius: 10px;
+  border: 1px solid #555;
+  padding: 0.5rem 0.8rem;
+  background-color: #2a2a2a;
+  color: #eee;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+}
+
+textarea#user-prompt:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* Botones principales con sólo íconos */
+.actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+/* Make sure every button-like control uses the accent color so profile color
+   changes apply everywhere without exception. Targets native buttons, styled
+   icon buttons and common button-like inputs. */
+button,
+input[type="button"],
+input[type="submit"],
+button#start-btn,
+.icon-btn,
+.icon-upload {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 0 12px var(--accent) !important;
+  cursor: pointer;
+}
+
+button#start-btn,
+.icon-btn {
+  border-radius: 10%;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.25s ease, box-shadow 0.3s ease, transform 0.12s ease;
+  position: relative;
+}
+
+button#start-btn:hover,
+.icon-btn:hover {
+  filter: brightness(0.92);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.icon-upload {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  /* accent applied globally above */
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.icon-upload:hover {
+  filter: brightness(0.86);
+}
+
+/* Ícono de subir (upload) con SVG */
+.icon-upload::before {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  /* Use currentColor for the SVG so the icon color follows the CSS `color` value */
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9v2.6c0 .55.45 1 1 1h12c.55 0 1-.45 1-1V9.9H14v2.1H2V9.9H.5zM7.5.15a.5.5 0 0 1 .5.5v7.793l2.146-2.147a.5.5 0 0 1 .708.708L8.5 10.707a.5.5 0 0 1-.708 0L5.146 7.004a.5.5 0 1 1 .708-.708L7 8.442V.65a.5.5 0 0 1 .5-.5z"/></svg>') no-repeat center center;
+  background-size: contain;
+}
+
+/* Explicitly ensure the main action controls use the accent color */
+#start-btn,
+#copy-btn,
+#stop-btn,
+label.icon-upload {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+
+/* Make sure SVG icons inside buttons inherit the text color */
+button svg,
+.icon-btn svg {
+  fill: currentColor !important;
+}
+
+/* Small spinner shown inside the start button while processing */
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.25);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  box-sizing: border-box;
+  animation: spin 1s linear infinite;
+  margin-left: 6px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Ensure AI action buttons are aligned and visible inside the panel */
+.ai-actions .icon-btn {
+  /* ensure action icons inside AI panel also use accent */
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 75%, black 10%) !important;
+  color: #fff;
+}
+
+button#start-btn:disabled,
+button:disabled,
+input[disabled] {
+  /* Preserve a disabled look but keep relative hue of the accent */
+  opacity: 0.5;
+  filter: grayscale(80%);
+  cursor: not-allowed;
+  box-shadow: none !important;
+}
+
+button#start-btn svg,
+.icon-btn svg {
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+}
+
+/* Focus states should also reflect the chosen accent */
+button:focus,
+input[type="button"]:focus,
+button#start-btn:focus,
+.icon-btn:focus,
+.icon-upload:focus,
+#lang-select:focus {
+  outline: none;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+  border-color: var(--accent);
+}
+
+/* Panel AI */
+.ai-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.ai-panel h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ddd;
+  margin: 0;
+}
+
+textarea#ai-output {
+  width: 100%;
+  min-height: 140px;
+  max-height: 320px;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  border-radius: 12px;
+  border: 1px solid #555;
+  background-color: rgba(20, 20, 20, 0.85);
+  color: #eee;
+  resize: vertical;
+}
+
+textarea.ai-output-loading {
+  font-style: italic;
+  color: #999;
+}
+
+.ai-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Enlace donar */
+.donate-link {
+  color: #aaa;
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: 1.8rem;
+  display: block;
+  text-decoration: none;
+  user-select: none;
+  transition: color 0.3s ease;
+}
+
+.donate-link:hover,
+.donate-link:focus {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* Screen reader only helper */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0,0,0,0) !important;
+  border: 0 !important;
+}

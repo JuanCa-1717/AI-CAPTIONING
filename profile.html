@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Profile & Achievements</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/profile.css">
+</head>
+<body>
+<div class="background-layer"></div>
+<main class="container" role="main">
+  <header class="title">Profile & Achievements</header>
+
+  <div class="glass-panel">
+    <div class="input-group">
+      <label for="alias">Alias</label>
+      <input id="alias" placeholder="Your display name" />
+    </div>
+    <div class="input-group">
+      <label for="theme-color">Theme Color</label>
+      <input id="theme-color" type="color" value="#0b4668" />
+    </div>
+    <div class="input-group">
+      <label>Achievements</label>
+      <div id="ach-list"></div>
+    </div>
+
+    <div style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.6rem;">
+      <button id="save-btn" class="icon-btn">Save</button>
+      <button id="clear-btn" class="icon-btn">Clear Achievements</button>
+    </div>
+  </div>
+
+  <a href="index.html" class="donate-link">Back</a>
+</main>
+<script src="profile.js"></script>
+</body>
+</html>

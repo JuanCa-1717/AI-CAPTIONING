@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="google-site-verification" content="4VvL9Sq0t4xvSBtNznM_5TCHGAiFOdlphE0vnVPcmUg" />
+<link rel="canonical" href="https://aiwork.work.gd/" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AIWORK</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+<script src="app.js" defer></script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="background-layer"></div>
+<main class="container" role="main" aria-label="Interfaz de carga y consulta de imágenes con AI">
+
+  <header class="title">Upload your image and ask a question</header>
+
+  <div style="display:flex; justify-content:center; gap:8px;">
+    <a href="profile.html" class="donate-link">Profile</a>
+  </div>
+
+  <div class="glass-panel inputs-container">
+
+<div class="input-group">
+  <label for="file-input" class="icon-upload" title="Upload images" aria-label="Subir imágenes"></label>
+  <input type="file" id="file-input" accept="image/*" class="file-input" multiple aria-describedby="img-list-label" />
+</div>
+
+    <div class="input-group">
+      <label for="lang-select">Language / Idioma</label>
+      <select id="lang-select" aria-label="Select language">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="de">Deutsch</option>
+        <option value="pt">Português</option>
+      </select>
+    </div>
+
+
+    <ul id="image-list" aria-live="polite" aria-label="Lista de imágenes subidas" class="image-list"></ul>
+
+    <div class="input-group">
+      <label for="user-prompt" id="prompt-label">Your question</label>
+      <textarea id="user-prompt" rows="4" placeholder="Type your question about the image here" aria-label="Área para escribir su pregunta"></textarea>
+    </div>
+
+  </div>
+
+  <div class="actions">
+    <button id="start-btn" type="button" aria-label="Iniciar extracción de texto y consulta AI">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+        <path d="M0 14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2a2 2 0 0 0-2 2zm4.5-6.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5a.5.5 0 0 1 0-1"/>
+      </svg>
+    </button>
+  </div>
+
+  <section id="ai-section" class="ai-panel glass-panel" aria-live="polite" aria-label="Respuesta AI" style="display:none;">
+    <h2 id="ai-heading">AI Response:</h2>
+    <textarea id="ai-output" readonly rows="10" aria-label="Texto de respuesta de la IA"></textarea>
+    <div class="ai-actions">
+      <button id="copy-btn" class="icon-btn" aria-label="Copiar texto" type="button" style="display:none;">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"></path></svg>
+      </button>
+      <button id="stop-btn" class="icon-btn" aria-label="Detener respuesta" type="button" style="display:none;">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="6" width="12" height="12" rx="2" ry="2"></rect></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- <a id="donate-link" href="https://www.paypal.com/donate/?hosted_button_id=3V4NXKLKF7H86" class="donate-link" target="_blank" rel="noopener noreferrer">Donate</a> -->
+</main>
+</body>
+</html>
