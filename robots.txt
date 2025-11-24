@@ -1,0 +1,4 @@
+User-agent: *
+Disallow:
+
+Sitemap: https://aiwork.work.gd/sitemap.xml
