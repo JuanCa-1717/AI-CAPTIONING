@@ -1,6 +1,6 @@
 {
   "name": "AIWORK - AI Image Caption & Analysis",
-  "short_name": "AIWORK",
+  "short_name": "Sight Forgen",
   "description": "Upload images, extract text with OCR, and get AI-powered analysis and responses",
   "start_url": "/",
   "display": "standalone",
@@ -33,4 +33,5 @@
     }
   ],
   "prefer_related_applications": false
+
 }
