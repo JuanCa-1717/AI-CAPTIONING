@@ -151,6 +151,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification('AIWORK', options)
+    self.registration.showNotification('Sight Forgen', options)
   );
+
 });
