@@ -1066,22 +1066,12 @@ window.addEventListener('load', () => {
   async function query(data, retries = 2, signal = null) {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-          // Read primary OpenRouter API key from localStorage. This app forces
-          // all requests to use NVIDIA Nemotron, so we only use the primary key.
-          const openrouterKey = localStorage.getItem('openrouter_api_key') || '***REMOVED***';
-
-          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          const response = await fetch("api.php", {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${openrouterKey}`,
-              // provide site info for OpenRouter ranking/stats (optional)
-              "HTTP-Referer": window.location.origin,
-              "X-Title": document.title || "AIWORK",
               "Content-Type": "application/json"
             },
-            // Force all requests to use NVIDIA Nemotron as the single multimodal model
             body: JSON.stringify({
-              model: NEMOTRON_MODEL,
               messages: data.messages,
             }),
             signal
