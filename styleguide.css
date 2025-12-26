@@ -1,0 +1,14 @@
+:root {
+  --body-base-font-family: "Inter", Helvetica;
+  --body-base-font-weight: 400;
+  --body-base-font-size: 16px;
+  --body-base-letter-spacing: 0px;
+  --body-base-line-height: 140%;
+  --body-base-font-style: normal;
+  --body-small-strong-font-family: "Inter", Helvetica;
+  --body-small-strong-font-weight: 600;
+  --body-small-strong-font-size: 14px;
+  --body-small-strong-letter-spacing: 0px;
+  --body-small-strong-line-height: 140%;
+  --body-small-strong-font-style: normal;
+}

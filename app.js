@@ -1,3 +1,27 @@
+// Botón de subir archivos
+document.addEventListener('DOMContentLoaded', () => {
+  const fileInput = document.getElementById('file-upload');
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        alert('Archivo seleccionado: ' + e.target.files[0].name);
+      }
+    });
+  }
+  const sendBtn = document.getElementById('send-btn');
+  const mainInput = document.getElementById('main-input');
+  if (sendBtn && mainInput) {
+    sendBtn.addEventListener('click', () => {
+      const value = mainInput.value.trim();
+      if (value) {
+        alert('Mensaje enviado: ' + value);
+        mainInput.value = '';
+      } else {
+        alert('Por favor escribe un mensaje.');
+      }
+    });
+  }
+});
 window.addEventListener('load', () => {
   // Tab Navigation System
   // Activate a tab by id (hides other tab contents and sets the active nav-tab)
