@@ -17,3 +17,127 @@ button:focus-visible {
 a {
   text-decoration: none;
 }
+
+/* Authentication UI styles (glassmorphism, palette) */
+:root {
+  --c-1: #06141B;
+  --c-2: #11212D;
+  --c-3: #253745;
+  --c-4: #4A5C6A;
+  --c-5: #9BA8AB;
+  --c-6: #CCD0CF;
+}
+
+.auth-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(rgba(6,20,27,0.55), rgba(6,20,27,0.55));
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.auth-card {
+  background: linear-gradient(180deg, rgba(37,55,69,0.48), rgba(17,33,45,0.28));
+  border: 1px solid rgba(204,208,207,0.06);
+  box-shadow: 0 12px 40px rgba(2,6,8,0.6);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  padding: 1.5rem 1.75rem;
+  border-radius: 12px;
+  width: 30%;
+  min-width: 320px;
+  color: var(--c-6);
+}
+
+.auth-header {
+  color: var(--c-5);
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(156,168,171,0.12);
+  color: var(--c-6);
+  outline: none;
+  margin-bottom: 0.6rem;
+}
+.auth-input::placeholder { color: var(--c-5); }
+
+.auth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  color: var(--c-6);
+  font-weight: 600;
+  transition: transform .12s ease, opacity .12s;
+}
+.auth-btn:hover { transform: translateY(-2px); opacity: 0.98; }
+
+.auth-btn--primary { background: var(--c-3); }
+.auth-btn--secondary { background: var(--c-4); }
+.auth-btn--ghost { background: transparent; border: 1px solid rgba(204,208,207,0.06); color: var(--c-5); }
+
+.auth-top-btn { padding: 0.45rem 0.75rem; border-radius: 8px; font-size: 0.95rem; }
+
+.message-card { min-width: 260px; max-width: 90%; text-align: center; }
+
+/* Ensure auth modal uses flex centering when shown */
+.auth-modal.show { display: flex; }
+
+/* Google sign button (provided) */
+.btn-165 {
+  padding: 10px 25px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+  border-radius: 0.5rem;
+  border: 1px solid #bebebe;
+  gap: 10px;
+  color: #414141;
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  /*** full width block ***/
+  /* width: 100%; */
+}
+
+.btn-165 svg {
+  height: 24px;
+}
+
+.btn-165:hover {
+  border: solid 1px #464545;
+}
+
+.btn-165:active {
+  margin-top: 1px;
+}
+
+/*** disabled style ***/
+.btn-165:disabled {
+  pointer-events: none;
+  opacity: .65;
+  color: #7e7e7e;
+  background: #dcdcdc;
+  box-shadow: none;
+  text-shadow: none;
+}

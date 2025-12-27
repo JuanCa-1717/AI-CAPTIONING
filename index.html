@@ -115,18 +115,208 @@
       <div
         class="absolute top-0 left-0 w-full h-[57px] bg-[#ffffff14] border-b-[0.1px] [border-bottom-style:solid] border-[#ffffff7d] shadow-[0px_12px_50.3px_#00000040] backdrop-blur-[9.9px] backdrop-brightness-[100%] [-webkit-backdrop-filter:blur(9.9px)_brightness(100%)]"
       ></div>
-      <div
-        class="flex flex-wrap items-center gap-2 px-2 py-px absolute top-2 right-4"
-      >
-        <div
-          class="relative w-6 h-6 rounded-full bg-[url(https://c.animaapp.com/mjmcwbk4IDVKoU/img/shape.png)] bg-cover bg-[50%_50%]"
-        ></div>
-        <div
-          class="relative w-[204px] font-body-base font-[number:var(--body-base-font-weight)] text-[#97a5a8] text-[length:var(--body-base-font-size)] tracking-[var(--body-base-letter-spacing)] leading-[var(--body-base-line-height)] [font-style:var(--body-base-font-style)]"
-        >
-          flippy@figma.com
+      <div class="flex flex-wrap items-center gap-2 px-2 py-px absolute top-2 right-4" id="firebase-auth-container">
+        <div id="firebase-profile" style="display:none;" class="flex items-center gap-2">
+          <img id="firebase-avatar" class="relative w-6 h-6 rounded-full bg-cover bg-[50%_50%]" src="" alt="Profile" />
+          <span id="firebase-name" class="relative font-body-base text-[#97a5a8]"></span>
+          <button onclick="firebaseLogout()" class="ml-2 auth-btn auth-btn--ghost">Sign out</button>
+        </div>
+        <button id="firebase-login-btn" class="auth-top-btn auth-btn auth-btn--primary">Log in</button>
+        <button id="firebase-register-open-btn" class="auth-top-btn auth-btn auth-btn--secondary">Sign up</button>
+      </div>
+
+      <!-- Firebase SDKs -->
+      <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-app-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-auth-compat.js"></script>
+
+
+      <!-- Login modal (solo inicio de sesión) -->
+      <div id="firebase-login-modal" class="auth-modal">
+        <div class="auth-card auth-card-spaced">
+          <h2 class="auth-header">Log in</h2>
+          <div class="auth-fields">
+            <input id="login-email" class="auth-input" type="email" placeholder="Email" />
+            <input id="login-password" class="auth-input" type="password" placeholder="Password" />
+          </div>
+          <div class="auth-buttons">
+            <button id="firebase-email-login-btn" class="auth-btn auth-btn--primary" style="width:100%">Log in</button>
+            <button id="firebase-google-login-btn" class="auth-btn auth-btn--ghost" style="width:100%">Log in with Google</button>
+            <button id="firebase-close-login-modal" class="auth-btn auth-close" style="width:100%">Cancel</button>
+          </div>
         </div>
       </div>
+
+      <!-- Register modal (solo crear cuenta con email) -->
+      <div id="firebase-register-modal" class="auth-modal">
+        <div class="auth-card auth-card-spaced">
+          <h2 class="auth-header">Sign up</h2>
+          <div class="auth-fields">
+            <input id="register-email" class="auth-input" type="email" placeholder="Email" />
+            <input id="register-password" class="auth-input" type="password" placeholder="Password" />
+          </div>
+          <div class="auth-buttons">
+            <button id="firebase-register-submit-btn" class="auth-btn auth-btn--secondary" style="width:100%">Create account</button>
+            <button id="firebase-register-google-btn" class="auth-btn auth-btn--ghost" style="width:100%">Sign up with Google</button>
+            <button id="firebase-close-register-modal" class="auth-btn auth-close" style="width:100%">Cancel</button>
+          </div>
+        </div>
+      </div>
+    <style>
+      .auth-card-spaced {
+        padding: 2rem 1.5rem !important;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+      .auth-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .auth-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+      }
+    </style>
+
+      <!-- Message modal (reemplaza alert) -->
+      <div id="firebase-message-modal" class="auth-modal">
+        <div class="auth-card message-card">
+          <div id="firebase-message-content" style="margin-bottom:1rem; color:var(--c-6)"></div>
+          <button id="firebase-message-close" class="auth-btn auth-btn--primary" style="width:100%">Close</button>
+        </div>
+      </div>
+
+      <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyCxW--usdfHZK6NJw9SiADLzwtozvSjm2w",
+          authDomain: "sightforgen.firebaseapp.com",
+          projectId: "sightforgen",
+          storageBucket: "sightforgen.firebasestorage.app",
+          messagingSenderId: "337444110932",
+          appId: "1:337444110932:web:16fe01dc63902d7e39e3c1",
+          measurementId: "G-VYFQ1DVGDY"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        function updateFirebaseUI(user) {
+            if (user) {
+              document.getElementById('firebase-profile').style.display = 'flex';
+              document.getElementById('firebase-avatar').src = user.photoURL || 'https://www.gravatar.com/avatar?d=mp';
+              document.getElementById('firebase-name').textContent = user.displayName || user.email;
+              document.getElementById('firebase-login-btn').style.display = 'none';
+              document.getElementById('firebase-register-open-btn').style.display = 'none';
+            } else {
+              document.getElementById('firebase-profile').style.display = 'none';
+              document.getElementById('firebase-login-btn').style.display = '';
+              document.getElementById('firebase-register-open-btn').style.display = '';
+            }
+        }
+
+        auth.onAuthStateChanged(updateFirebaseUI);
+
+        document.getElementById('firebase-login-btn').onclick = () => {
+          document.getElementById('firebase-login-modal').style.display = 'flex';
+        };
+        document.getElementById('firebase-email-login-btn').onclick = async () => {
+          const email = document.getElementById('login-email').value;
+          const password = document.getElementById('login-password').value;
+          try {
+            await auth.signInWithEmailAndPassword(email, password);
+            document.getElementById('firebase-login-modal').style.display = 'none';
+          } catch (e) {
+            showMessage('Error: ' + e.message);
+          }
+        };
+        // register flow moved to separate modal
+        document.getElementById('firebase-register-open-btn').onclick = () => {
+          document.getElementById('firebase-register-modal').style.display = 'flex';
+        };
+        document.getElementById('firebase-close-register-modal').onclick = () => {
+          document.getElementById('firebase-register-modal').style.display = 'none';
+        };
+        document.getElementById('firebase-register-submit-btn').onclick = async () => {
+          const email = document.getElementById('register-email').value;
+          const password = document.getElementById('register-password').value;
+          if (!email || !password) { showMessage('Please enter email and password'); return; }
+          try {
+            await auth.createUserWithEmailAndPassword(email, password);
+            document.getElementById('firebase-register-modal').style.display = 'none';
+            showMessage('Account created successfully.');
+          } catch (e) {
+            showMessage('Error: ' + e.message);
+          }
+        };
+        // Register with Google: allow creating a new account. If account already exists, sign out and show message.
+        document.getElementById('firebase-register-google-btn').onclick = async () => {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          try {
+            const result = await auth.signInWithPopup(provider);
+            const isNew = result?.additionalUserInfo?.isNewUser;
+            if (isNew) {
+              document.getElementById('firebase-register-modal').style.display = 'none';
+              showMessage('Account created successfully with Google.');
+            } else {
+              // Account already exists — do not keep the user signed in from the register flow
+              await auth.signOut();
+              showMessage('That account already exists. Please log in.');
+            }
+          } catch (e) {
+            if (e.code !== 'auth/cancelled-popup-request' && e.code !== 'auth/popup-closed-by-user') {
+              showMessage('Error: ' + e.message);
+            }
+          }
+        };
+
+        // Login with Google: only allow sign-in if account already exists. If a new account would be created, remove it and show error.
+        document.getElementById('firebase-google-login-btn').onclick = async () => {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          try {
+            const result = await auth.signInWithPopup(provider);
+            const isNew = result?.additionalUserInfo?.isNewUser;
+            if (isNew) {
+              // A new account was created by the popup; remove it because user tried to "login" with a Google account that isn't registered
+              try {
+                const user = auth.currentUser;
+                if (user) {
+                  await user.delete();
+                }
+              } catch (delErr) {
+                // If deletion fails, at least sign out
+                await auth.signOut();
+              }
+              showMessage('That Google account is not registered. Please register first.');
+            } else {
+              document.getElementById('firebase-login-modal').style.display = 'none';
+            }
+          } catch (e) {
+            if (e.code !== 'auth/cancelled-popup-request' && e.code !== 'auth/popup-closed-by-user') {
+              showMessage('Error: ' + e.message);
+            }
+          }
+        };
+
+        // login modal controls
+        document.getElementById('firebase-close-login-modal').onclick = () => {
+          document.getElementById('firebase-login-modal').style.display = 'none';
+        };
+        // message modal helper
+        function showMessage(msg) {
+          document.getElementById('firebase-message-content').textContent = msg;
+          document.getElementById('firebase-message-modal').style.display = 'flex';
+        }
+        document.getElementById('firebase-message-close').onclick = () => {
+          document.getElementById('firebase-message-modal').style.display = 'none';
+        };
+        window.firebaseLogout = async () => {
+          await auth.signOut();
+        };
+        window.onload = function() {
+          updateFirebaseUI(auth.currentUser);
+        };
+      </script>
       <div
         id="sidebar"
         class="sidebar flex flex-col w-[22vw] min-w-[60px] max-w-[350px] h-[calc(100vh-57px)] items-start gap-6 px-4 py-8 absolute top-[57px] left-0 bg-[#ffffff0d] border-r-[0.2px] [border-right-style:solid] border-[#ffffffbf] shadow-[17px_8px_39.9px_#00000040] z-20"
