@@ -141,3 +141,71 @@ a {
   box-shadow: none;
   text-shadow: none;
 }
+
+/* === Moved from index.html === */
+.chat-item {
+  transition: all 0.3s ease;
+}
+
+.chat-item .chat-indicator {
+  width: 0;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.chat-item.active .chat-indicator {
+  width: 2px;
+  opacity: 1;
+}
+
+.chat-item .chat-text {
+  color: #95a3a6;
+  font-weight: 400;
+  transition: all 0.3s ease;
+}
+
+.chat-item.active .chat-text {
+  color: #ccd0cf;
+  font-weight: 600;
+}
+
+.sidebar {
+  transition: width 0.3s ease;
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: 70px !important;
+}
+
+.sidebar-content {
+  transition: opacity 0.3s ease;
+  min-width: 318px;
+}
+
+.sidebar.collapsed .sidebar-content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.menu-button {
+  transition: opacity 0.3s ease;
+}
+
+html, body {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+body {
+  min-width: 0;
+  min-height: 0;
+}
+.main-bg {
+  width: 100vw !important;
+  height: 100vh !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
