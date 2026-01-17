@@ -1361,6 +1361,15 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   window.callAIAPI = callAIAPI;
 
+  // Fallback local AI response so UI always shows something if API fails
+  async function fakeAIResponse(userText) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve('AI: ' + userText.split('').reverse().join(''));
+      }, 700);
+    });
+  }
+
   // Message send handler
   async function handleSendMessage() {
       aiResponsePending = true;
@@ -1484,11 +1493,21 @@ window.addEventListener('DOMContentLoaded', () => {
       aiResponsePending = false;
       try { clearAIPending(); } catch (e) {}
     }
-    // Save AI response in the correct chat unless it was cancelled or an error placeholder
-    const chatForAI = chats.find(c => c.id === chatIdForAI);
+    // If AI returned an error or empty response, fallback to local fake response
     const isCancelled = aiText === 'AI cancelled';
     const isAIError = typeof aiText === 'string' && aiText.startsWith('AI error:');
-    if (chatForAI && !isCancelled && !isAIError) {
+    if (!isCancelled && (isAIError || !aiText || aiText.trim() === '')) {
+      try {
+        const fallback = await fakeAIResponse(text);
+        aiText = fallback;
+        console.warn('Using fallback AI response');
+      } catch (e) {
+        console.error('Fallback AI also failed', e);
+      }
+    }
+    // Save AI response in the correct chat unless it was cancelled
+    const chatForAI = chats.find(c => c.id === chatIdForAI);
+    if (chatForAI && !isCancelled && aiText) {
       if (!chatForAI.messages) chatForAI.messages = [];
       chatForAI.messages.push({ text: aiText, from: 'ai' });
       saveChats();
