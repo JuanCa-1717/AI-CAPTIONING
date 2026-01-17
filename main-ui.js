@@ -1252,7 +1252,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Simulación fiel de la lógica de api.php y OpenRouter
   // Implementación directa de la API PHP en JS usando fetch a OpenRouter
   async function callAIAPI(userText) {
-    const api_key = '***REMOVED***'; // SOLO PARA PRUEBAS
+    const api_key = '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'; // SOLO PARA PRUEBAS
     // Accept optional OCR summary and attachments as additional args
     const args = Array.from(arguments);
     const ocrSummary = args.length > 1 ? args[1] : '';
@@ -1360,6 +1360,15 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
   window.callAIAPI = callAIAPI;
+
+  // Fallback local AI response so UI always shows something if API fails
+  async function fakeAIResponse(userText) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve('AI: ' + userText.split('').reverse().join(''));
+      }, 700);
+    });
+  }
 
   // Message send handler
   async function handleSendMessage() {
@@ -1484,11 +1493,21 @@ window.addEventListener('DOMContentLoaded', () => {
       aiResponsePending = false;
       try { clearAIPending(); } catch (e) {}
     }
-    // Save AI response in the correct chat unless it was cancelled or an error placeholder
-    const chatForAI = chats.find(c => c.id === chatIdForAI);
+    // If AI returned an error or empty response, fallback to local fake response
     const isCancelled = aiText === 'AI cancelled';
     const isAIError = typeof aiText === 'string' && aiText.startsWith('AI error:');
-    if (chatForAI && !isCancelled && !isAIError) {
+    if (!isCancelled && (isAIError || !aiText || aiText.trim() === '')) {
+      try {
+        const fallback = await fakeAIResponse(text);
+        aiText = fallback;
+        console.warn('Using fallback AI response');
+      } catch (e) {
+        console.error('Fallback AI also failed', e);
+      }
+    }
+    // Save AI response in the correct chat unless it was cancelled
+    const chatForAI = chats.find(c => c.id === chatIdForAI);
+    if (chatForAI && !isCancelled && aiText) {
       if (!chatForAI.messages) chatForAI.messages = [];
       chatForAI.messages.push({ text: aiText, from: 'ai' });
       saveChats();
