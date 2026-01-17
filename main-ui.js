@@ -24,8 +24,8 @@ function toggleSidebar() {
     plusBtn.style.display = '';
   }
 }
-// Ajustar el padding inicial al cargar
-// --- Mensaje modal helper global ---
+// Adjust initial padding on load
+// --- Global modal message helper ---
 function showMessage(msg) {
   const modal = document.getElementById('firebase-message-modal');
   const content = document.getElementById('firebase-message-content');
@@ -52,7 +52,19 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- Firebase Auth and UI Logic ---
-// Variables globales para chats y chat seleccionado
+// Helper to enable/disable input and send button globally
+function setChatInputEnabled(enabled) {
+  const chatInputContainer = document.getElementById('chat-input-container');
+  if (!chatInputContainer) return;
+  const chatInput = chatInputContainer.querySelector('input[type="text"]');
+  const sendBtn = chatInputContainer.querySelector('button > img[alt="Send message"]')?.parentElement;
+  if (chatInput) chatInput.disabled = !enabled;
+  if (sendBtn) sendBtn.disabled = !enabled;
+  if (!enabled && chatInput) {
+    chatInput.value = '';
+  }
+}
+// Global variables for chats and selected chat
 
 let currentUser = null;
 let chats = [];
@@ -60,6 +72,9 @@ let selectedChatId = null;
 let userChatsKey = null;
 let chatMessagesContainer = null; // Referencia global para mensajes
 let firebaseAuthReady = false;
+let aiResponsePending = false;
+// Selected images (data URLs) pending to be sent with the next message
+let selectedImages = [];
 
 // --- Make saveChats and appendMessage globally accessible ---
 function saveChats() {
@@ -67,7 +82,7 @@ function saveChats() {
   localStorage.setItem(userChatsKey, JSON.stringify(chats));
 }
 
-function appendMessage(text, from, save = true) {
+function appendMessage(text, from, save = true, attachments = []) {
   if (!chatMessagesContainer) return;
   const msg = document.createElement('div');
   msg.className = from === 'user' ? 'chat-msg-user' : 'chat-msg-ai';
@@ -79,15 +94,42 @@ function appendMessage(text, from, save = true) {
   msg.style.maxWidth = '80%';
   msg.style.fontSize = '1rem';
   msg.style.boxShadow = '0 2px 8px 0 rgba(0,0,0,0.04)';
-  msg.textContent = text;
+
+  // Text
+  if (text) {
+    const textNode = document.createElement('div');
+    textNode.textContent = text;
+    msg.appendChild(textNode);
+  }
+
+  // Attachments (thumbnails)
+  if (attachments && attachments.length) {
+    const attachContainer = document.createElement('div');
+    attachContainer.style.display = 'flex';
+    attachContainer.style.flexWrap = 'wrap';
+    attachContainer.style.gap = '8px';
+    attachContainer.style.marginTop = text ? '8px' : '0';
+    attachments.forEach(att => {
+      const img = document.createElement('img');
+      img.src = att;
+      img.style.maxWidth = '240px';
+      img.style.maxHeight = '240px';
+      img.style.objectFit = 'cover';
+      img.style.borderRadius = '8px';
+      img.style.boxShadow = '0 1px 6px rgba(0,0,0,0.12)';
+      attachContainer.appendChild(img);
+    });
+    msg.appendChild(attachContainer);
+  }
+
   chatMessagesContainer.appendChild(msg);
   chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-  // Guardar mensaje en el chat seleccionado
+  // Save message in the selected chat (store attachments as data URLs)
   if (save && selectedChatId) {
     const chat = chats.find(c => c.id === selectedChatId);
     if (chat) {
       if (!chat.messages) chat.messages = [];
-      chat.messages.push({ text, from });
+      chat.messages.push({ text, from, attachments: attachments || [] });
       saveChats();
     }
   }
@@ -242,14 +284,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // --- Chat List Logic ---
   function getChatsKeyForUser(user) {
-    return user && user.uid ? `userChats_${user.uid}` : null;
+    return user && user.uid ? `userChats_${user.uid}` : 'userChats_guest';
   }
 
   function loadChats() {
-    if (!userChatsKey) { chats = []; return; }
+    if (!userChatsKey) { chats = []; selectedChatId = null; return; }
     const raw = localStorage.getItem(userChatsKey);
     chats = raw ? JSON.parse(raw) : [];
-    // Restaurar el chat seleccionado desde localStorage
+    // Restore selected chat from localStorage
     const lastSelectedId = localStorage.getItem(userChatsKey + '_selected');
     if (chats.length) {
       if (lastSelectedId && chats.some(c => c.id === lastSelectedId)) {
@@ -257,12 +299,14 @@ window.addEventListener('DOMContentLoaded', () => {
       } else {
         selectedChatId = chats[0].id;
       }
+    } else {
+      selectedChatId = null;
     }
   }
   function saveChats() {
     if (!userChatsKey || !chats.length) return;
     localStorage.setItem(userChatsKey, JSON.stringify(chats));
-    // Guardar el chat seleccionado
+    // Save selected chat
     if (selectedChatId) {
       localStorage.setItem(userChatsKey + '_selected', selectedChatId);
     }
@@ -277,10 +321,10 @@ window.addEventListener('DOMContentLoaded', () => {
   function renderChats() {
     let chatList = document.getElementById('chat-list');
     if (!chatList) {
-      // Si no existe el contenedor, créalo dinámicamente (esto es útil para AJAX)
+      // If the container doesn't exist, create it dynamically (useful for AJAX)
       chatList = document.createElement('div');
       chatList.id = 'chat-list';
-      // Insertar en el DOM, por ejemplo, en el sidebar
+      // Insert into the DOM, e.g., in the sidebar
       const sidebar = document.getElementById('sidebar');
       if (sidebar) {
         sidebar.appendChild(chatList);
@@ -295,19 +339,20 @@ window.addEventListener('DOMContentLoaded', () => {
       empty.textContent = 'No chats yet.';
       chatList.appendChild(empty);
       if (chatMessagesContainer) chatMessagesContainer.innerHTML = '';
+      // Do NOT show any chat name input if there are no chats
       return;
     }
     chats.forEach(chat => {
       const btn = document.createElement('button');
       btn.className = 'chat-item flex items-center gap-4 px-1.5 py-1 relative self-stretch w-full flex-[0_0_auto] rounded-lg hover:bg-[#ffffff1a] cursor-pointer' + (chat.id === selectedChatId ? ' active' : '');
       btn.onclick = () => selectChatBtn(chat.id);
-      // Menú contextual para eliminar chat
+      // Context menu for chat actions
       btn.oncontextmenu = (e) => {
         e.preventDefault();
-        // Eliminar menú contextual anterior si existe
+        // Remove previous context menu if exists
         const oldMenu = document.getElementById('chat-context-menu');
         if (oldMenu) oldMenu.remove();
-        // Crear menú contextual
+        // Create context menu
         const menu = document.createElement('div');
         menu.id = 'chat-context-menu';
         menu.style.position = 'fixed';
@@ -315,34 +360,41 @@ window.addEventListener('DOMContentLoaded', () => {
         menu.style.left = e.clientX + 'px';
         menu.style.background = '#232e36';
         menu.style.color = '#ccd0cf';
-        menu.style.padding = '8px 16px';
+        menu.style.padding = '0';
         menu.style.borderRadius = '8px';
         menu.style.boxShadow = '0 2px 8px 0 rgba(0,0,0,0.12)';
         menu.style.zIndex = 9999;
         menu.style.cursor = 'pointer';
-        menu.textContent = 'Eliminar chat';
-        menu.onmousedown = (ev) => { ev.stopPropagation(); };
-        menu.onclick = () => {
-          // Eliminar chat
-          const idx = chats.findIndex(c => c.id === chat.id);
-          if (idx !== -1) {
-            chats.splice(idx, 1);
-            if (selectedChatId === chat.id) {
-              selectedChatId = chats.length ? chats[0].id : null;
-            }
-            saveChats();
-            // Si ya no quedan chats, eliminar la referencia y los datos en localStorage
-            if (!chats.length && userChatsKey) {
-              localStorage.removeItem(userChatsKey + '_selected');
-              localStorage.removeItem(userChatsKey);
-              selectedChatId = null;
-            }
-            renderChats();
-          }
+
+        // Option: Edit name
+        const editOption = document.createElement('div');
+        editOption.textContent = 'Edit name';
+        editOption.style.padding = '8px 16px';
+        editOption.style.borderBottom = '1px solid #333a';
+        editOption.onmousedown = (ev) => { ev.stopPropagation(); };
+        editOption.onclick = () => {
+          // Switch chat to edit mode
+          chat.title = '__editing__';
+          saveChats();
+          renderChats();
           menu.remove();
         };
+        menu.appendChild(editOption);
+
+        // Option: Delete chat
+        const deleteOption = document.createElement('div');
+        deleteOption.textContent = 'Delete chat';
+        deleteOption.style.padding = '8px 16px';
+        deleteOption.onmousedown = (ev) => { ev.stopPropagation(); };
+        deleteOption.onclick = () => {
+          // Show confirmation modal before deleting
+          showDeleteChatModal(chat.id);
+          menu.remove();
+        };
+        menu.appendChild(deleteOption);
+
         document.body.appendChild(menu);
-        // Cerrar menú contextual al hacer clic fuera
+        // Close context menu when clicking outside
         const closeMenu = (ev) => {
           if (menu && !menu.contains(ev.target)) menu.remove();
           document.removeEventListener('mousedown', closeMenu);
@@ -351,67 +403,373 @@ window.addEventListener('DOMContentLoaded', () => {
           document.addEventListener('mousedown', closeMenu);
         }, 0);
       };
+      // --- Modal for chat deletion confirmation ---
+      function showDeleteChatModal(chatId) {
+        // Remove any existing modal
+        let modal = document.getElementById('delete-chat-modal');
+        if (modal) modal.remove();
+
+        modal = document.createElement('div');
+        modal.id = 'delete-chat-modal';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100vw';
+        modal.style.height = '100vh';
+        modal.style.background = 'rgba(0,0,0,0.35)';
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.zIndex = 10000;
+
+        const box = document.createElement('div');
+        box.style.background = '#232e36';
+        box.style.color = '#ccd0cf';
+        box.style.padding = '32px 28px';
+        box.style.borderRadius = '12px';
+        box.style.boxShadow = '0 2px 16px 0 rgba(0,0,0,0.18)';
+        box.style.display = 'flex';
+        box.style.flexDirection = 'column';
+        box.style.alignItems = 'center';
+        box.style.minWidth = '320px';
+
+        const msg = document.createElement('div');
+        msg.textContent = 'Are you sure you want to delete this chat?';
+        msg.style.marginBottom = '24px';
+        msg.style.fontSize = '1.1rem';
+        box.appendChild(msg);
+
+        const btnRow = document.createElement('div');
+        btnRow.style.display = 'flex';
+        btnRow.style.gap = '18px';
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Delete';
+        confirmBtn.style.background = '#e74c3c';
+        confirmBtn.style.color = '#fff';
+        confirmBtn.style.border = 'none';
+        confirmBtn.style.padding = '8px 22px';
+        confirmBtn.style.borderRadius = '6px';
+        confirmBtn.style.fontWeight = 'bold';
+        confirmBtn.style.cursor = 'pointer';
+        confirmBtn.onclick = () => {
+          // Actually delete the chat
+          const idx = chats.findIndex(c => c.id === chatId);
+          if (idx !== -1) {
+            chats.splice(idx, 1);
+            if (selectedChatId === chatId) {
+              selectedChatId = chats.length ? chats[0].id : null;
+            }
+            saveChats();
+            if (!chats.length && userChatsKey) {
+              localStorage.removeItem(userChatsKey + '_selected');
+              localStorage.removeItem(userChatsKey);
+              selectedChatId = null;
+            }
+            if (typeof renderChats === 'function') renderChats();
+            // If there's no selected chat after deletion, show the main title
+            // (e.g. "How can I help you today?") and remove the messages area.
+            if (!selectedChatId) {
+              const mainTitleContainer = document.getElementById('main-title-container');
+              if (mainTitleContainer) {
+                mainTitleContainer.style.display = '';
+                mainTitleContainer.style.opacity = '1';
+                mainTitleContainer.style.transform = 'none';
+                mainTitleContainer.style.transition = '';
+              }
+              // Disable the chat input since there's no active chat
+              try { setChatInputEnabled(false); } catch (e) {}
+              if (chatMessagesContainer) {
+                chatMessagesContainer.remove();
+                chatMessagesContainer = null;
+              }
+            }
+          }
+          modal.remove();
+        };
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.background = '#232e36';
+        cancelBtn.style.color = '#ccd0cf';
+        cancelBtn.style.border = '1px solid #98a6a9';
+        cancelBtn.style.padding = '8px 22px';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.style.fontWeight = 'bold';
+        cancelBtn.style.cursor = 'pointer';
+        cancelBtn.onclick = () => {
+          modal.remove();
+        };
+
+        btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(confirmBtn);
+        box.appendChild(btnRow);
+        modal.appendChild(box);
+        document.body.appendChild(modal);
+      }
       const indicator = document.createElement('div');
       indicator.className = 'chat-indicator relative h-6 bg-[#ccd0cf]';
-      const text = document.createElement('div');
-      text.className = 'chat-text relative flex-1 [font-family:\'Inter\',Helvetica] text-base tracking-[0] leading-[22.4px] text-left';
-      text.textContent = chat.title;
-      btn.appendChild(indicator);
-      btn.appendChild(text);
+      // If the chat has no title, show editable input
+      if (!chat.title || chat.title === '__editing__') {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'chat-title-input flex-1 px-2 py-1 rounded bg-[#232e36] text-[#ccd0cf] border border-[#98a6a9]';
+        input.placeholder = 'Chat name...';
+        input.autofocus = true;
+        input.value = '';
+
+        // ⭐ ANTI-SPACE and ANTI-SELF-CLICK: Flags
+        let justPressedSpace = false;
+        let justClickedInput = false;
+
+        // Function to save/delete
+        function saveOrDelete() {
+          const val = input.value.trim();
+          if (val) {
+            chat.title = val;
+            saveChats();
+            renderChats();
+          } else {
+            const idx = chats.findIndex(c => c.id === chat.id);
+            if (idx !== -1) {
+              chats.splice(idx, 1);
+              saveChats();
+              renderChats();
+            }
+          }
+        }
+
+        // ⭐ BLOCK SPACE on keydown (prevents the whole problem)
+        input.addEventListener('keydown', (e) => {
+          if (e.key === ' ') {
+            e.preventDefault(); // BLOCK space completely
+            justPressedSpace = true;
+            // Insert space manually
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            input.value = input.value.slice(0, start) + ' ' + input.value.slice(end);
+            input.setSelectionRange(start + 1, start + 1);
+            return false;
+          }
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            saveOrDelete();
+          }
+        });
+
+        // ⭐ Prevent save on self-click
+        input.addEventListener('mousedown', () => {
+          justClickedInput = true;
+        });
+
+        // ⭐ Only save on REAL blur (not space or self-click)
+        input.addEventListener('blur', (e) => {
+          setTimeout(() => {
+            if (!justPressedSpace && !justClickedInput) {
+              saveOrDelete();
+            }
+            justPressedSpace = false;
+            justClickedInput = false;
+          }, 10);
+        });
+
+        // Reset flag on normal typing
+        input.addEventListener('input', () => {
+          justPressedSpace = false;
+        });
+
+        btn.appendChild(indicator);
+        btn.appendChild(input);
+        setTimeout(() => { input.focus(); }, 0);
+      } else {
+        const text = document.createElement('div');
+        text.className = 'chat-text relative flex-1 [font-family:\'Inter\',Helvetica] text-base tracking-[0] leading-[22.4px] text-left';
+        text.textContent = chat.title;
+        btn.appendChild(indicator);
+        btn.appendChild(text);
+      }
       chatList.appendChild(btn);
     });
-    // Mostrar mensajes del chat seleccionado
+    // Enable/disable input depending on chat selection
+    setChatInputEnabled(!!selectedChatId);
+    // Show messages for the selected chat
     renderChatMessages();
+    // Initial state: disable if no chat selected
+    setChatInputEnabled(!!selectedChatId);
   }
 
   function renderChatMessages() {
-    if (!chatMessagesContainer) chatMessagesContainer = document.getElementById('chat-messages');
-    if (!chatMessagesContainer) return;
-    chatMessagesContainer.innerHTML = '';
+    // Remove the chat-messages div if it exists and there is no active chat or no messages
+    let container = document.getElementById('chat-messages');
     const chat = chats.find(c => c.id === selectedChatId);
-    // Ocultar el main title si hay chat seleccionado o mensajes
-    const mainTitleContainer = document.getElementById('main-title-container');
-    if (mainTitleContainer) {
-      if (chat && chat.messages && chat.messages.length) {
-        mainTitleContainer.style.display = 'none';
-      } else {
+    if (!chat || !chat.messages || !chat.messages.length) {
+      if (container) {
+        container.remove();
+        chatMessagesContainer = null;
+      }
+      // Show the main title if there is no active chat or no messages
+      const mainTitleContainer = document.getElementById('main-title-container');
+      if (mainTitleContainer) {
         mainTitleContainer.style.display = '';
+        mainTitleContainer.style.opacity = '1';
+        mainTitleContainer.style.transform = 'none';
+        mainTitleContainer.style.transition = '';
+      }
+      return;
+    }
+    // If there is a chat and messages, ensure the div exists
+    if (!container) {
+      // Insert the div before chatInputContainer
+      const chatInputContainer = document.getElementById('chat-input-container');
+      if (chatInputContainer) {
+        container = document.createElement('div');
+        container.id = 'chat-messages';
+        container.style.width = '100%';
+        container.style.maxWidth = '700px';
+        container.style.margin = '0 auto';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '12px';
+        container.style.padding = '32px 0 16px 0';
+        container.style.maxHeight = '480px';
+        container.style.minHeight = '220px';
+        container.style.overflowY = 'auto';
+        container.style.background = 'transparent';
+        container.style.scrollbarWidth = 'thin';
+        container.style.scrollbarColor = '#98a6a9 #232e36';
+        chatInputContainer.parentElement.insertBefore(container, chatInputContainer);
+        // Custom scrollbar for Webkit browsers
+        if (!document.getElementById('chat-messages-scrollbar-style')) {
+          const style = document.createElement('style');
+          style.id = 'chat-messages-scrollbar-style';
+          style.innerHTML = `
+            #chat-messages::-webkit-scrollbar {
+              width: 10px;
+              background: #232e36;
+              border-radius: 8px;
+            }
+            #chat-messages::-webkit-scrollbar-thumb {
+              background: #98a6a9;
+              border-radius: 8px;
+              min-height: 40px;
+            }
+            #chat-messages::-webkit-scrollbar-thumb:hover {
+              background: #ccd0cf;
+            }
+          `;
+          document.head.appendChild(style);
+        }
       }
     }
-    if (!chat || !chat.messages || !chat.messages.length) return;
+    chatMessagesContainer = container;
+    chatMessagesContainer.innerHTML = '';
+    // Hide the main title if there is a selected chat and messages
+    const mainTitleContainer = document.getElementById('main-title-container');
+    if (mainTitleContainer) mainTitleContainer.style.display = 'none';
     chat.messages.forEach(msg => {
-      // Solo renderiza, no guarda ni sincroniza
-      appendMessage(msg.text, msg.from, false);
+      // Only render, do not save or sync
+      appendMessage(msg.text, msg.from, false, msg.attachments || []);
     });
   }
 
   function selectChatBtn(chatId) {
-    selectedChatId = chatId;
-    // Guardar el chat seleccionado
-    if (userChatsKey && selectedChatId) {
-      localStorage.setItem(userChatsKey + '_selected', selectedChatId);
+    // Internal: perform the actual selection logic
+    function doSelect(id) {
+      selectedChatId = id;
+      if (userChatsKey && selectedChatId) {
+        localStorage.setItem(userChatsKey + '_selected', selectedChatId);
+      }
+      saveChats();
+      renderChats();
+      const chatInputContainer = document.getElementById('chat-input-container');
+      if (chatInputContainer) {
+        const chatInput = chatInputContainer.querySelector('input[type="text"]');
+        if (chatInput) chatInput.value = '';
+      }
+      setTimeout(() => { renderChatMessages(); }, 0);
     }
-    saveChats();
-    // Renderiza la lista y los mensajes del chat seleccionado
-    renderChats();
-    // Limpiar input al cambiar de chat
-    const chatInputContainer = document.getElementById('chat-input-container');
-    if (chatInputContainer) {
-      const chatInput = chatInputContainer.querySelector('input[type="text"]');
-      if (chatInput) chatInput.value = '';
+
+    // If an AI response is pending, offer the user to force the switch
+    if (aiResponsePending) {
+      // Remove existing modal if present
+      let existing = document.getElementById('force-switch-modal');
+      if (existing) existing.remove();
+      const modal = document.createElement('div');
+      modal.id = 'force-switch-modal';
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100vw';
+      modal.style.height = '100vh';
+      modal.style.display = 'flex';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.background = 'rgba(0,0,0,0.35)';
+      modal.style.zIndex = 10001;
+
+      const box = document.createElement('div');
+      box.style.background = '#232e36';
+      box.style.color = '#ccd0cf';
+      box.style.padding = '22px';
+      box.style.borderRadius = '10px';
+      box.style.minWidth = '320px';
+      box.style.textAlign = 'center';
+
+      const txt = document.createElement('div');
+      txt.textContent = 'Hay una respuesta de la IA pendiente. ¿Forzar el cambio de chat? Se cancelará la respuesta pendiente.';
+      txt.style.marginBottom = '16px';
+      box.appendChild(txt);
+
+      const btnRow = document.createElement('div');
+      btnRow.style.display = 'flex';
+      btnRow.style.gap = '12px';
+      btnRow.style.justifyContent = 'center';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Esperar';
+      cancelBtn.style.padding = '8px 16px';
+      cancelBtn.style.borderRadius = '6px';
+      cancelBtn.style.border = '1px solid #98a6a9';
+      cancelBtn.style.background = '#232e36';
+      cancelBtn.style.color = '#ccd0cf';
+      cancelBtn.onclick = () => { modal.remove(); };
+
+      const forceBtn = document.createElement('button');
+      forceBtn.textContent = 'Forzar cambio';
+      forceBtn.style.padding = '8px 16px';
+      forceBtn.style.borderRadius = '6px';
+      forceBtn.style.border = 'none';
+      forceBtn.style.background = '#58587c';
+      forceBtn.style.color = '#fff';
+      forceBtn.onclick = () => {
+        // Cancel pending AI response state and remove AI placeholder if present
+        aiResponsePending = false;
+        try {
+          if (chatMessagesContainer && chatMessagesContainer.lastChild && chatMessagesContainer.lastChild.textContent === '...') {
+            chatMessagesContainer.lastChild.remove();
+          }
+        } catch (e) {}
+        modal.remove();
+        doSelect(chatId);
+      };
+
+      btnRow.appendChild(cancelBtn);
+      btnRow.appendChild(forceBtn);
+      box.appendChild(btnRow);
+      modal.appendChild(box);
+      document.body.appendChild(modal);
+      return;
     }
-    // Renderizar mensajes del chat seleccionado (asegura que se muestre el historial correcto)
-    renderChatMessages();
+
+    // Normal selection when no AI response is pending
+    doSelect(chatId);
   }
 
   function createNewChat() {
-    if (!currentUser) {
-      showMessage('You must be logged in to create a new chat.');
-      return;
-    }
-    const title = prompt('Enter a name for your new chat:');
-    if (!title) return;
-    const newChat = { id: 'chat_' + Date.now(), title: title.trim(), messages: [] };
+    // Ensure we have a storage key (guest mode if no user)
+    if (!userChatsKey) userChatsKey = getChatsKeyForUser(currentUser);
+    // Create chat with title: null to show input (no focus/blur bug)
+    const newChat = { id: 'chat_' + Date.now(), title: null, messages: [] };
     chats.unshift(newChat);
     selectedChatId = newChat.id;
     saveChats();
@@ -436,7 +794,11 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     });
   } else {
-    clearChats();
+    // No Firebase available: operate in guest mode
+    firebaseAuthReady = true;
+    currentUser = null;
+    userChatsKey = getChatsKeyForUser(null);
+    loadChats();
     renderChats();
   }
 });
@@ -454,8 +816,13 @@ window.addEventListener('DOMContentLoaded', () => {
   const mainTitleContainer = document.getElementById('main-title-container');
 
   // Mensajes del chat (simple, solo para UI)
+  // Only create the chat-messages container when there is an active chat
+  // with messages. If no chat is selected we avoid creating it so it
+  // doesn't clutter the UI on the main screen.
   chatMessagesContainer = document.getElementById('chat-messages');
-  if (!chatMessagesContainer) {
+  const activeChat = chats.find(c => c.id === selectedChatId);
+  const shouldCreateMessages = !!(activeChat && activeChat.messages && activeChat.messages.length);
+  if (!chatMessagesContainer && shouldCreateMessages) {
     chatMessagesContainer = document.createElement('div');
     chatMessagesContainer.id = 'chat-messages';
     chatMessagesContainer.style.width = '100%';
@@ -473,6 +840,11 @@ window.addEventListener('DOMContentLoaded', () => {
     chatMessagesContainer.style.scrollbarWidth = 'thin';
     chatMessagesContainer.style.scrollbarColor = '#98a6a9 #232e36';
     chatInputContainer.parentElement.insertBefore(chatMessagesContainer, chatInputContainer);
+  }
+  // If there is an existing container but no active chat, remove it
+  if (chatMessagesContainer && !shouldCreateMessages) {
+    chatMessagesContainer.remove();
+    chatMessagesContainer = null;
   }
   // Custom scrollbar for Webkit browsers
   const style = document.createElement('style');
@@ -504,8 +876,129 @@ window.addEventListener('DOMContentLoaded', () => {
     }, 500);
   }
 
-  // Mostrar mensaje en el chat
-  function appendMessage(text, from, save = true) {
+  // Helper: create thumbnail dataURL from a File (max dimension)
+  function createThumbnail(file, maxDim = 240) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let w = img.width;
+          let h = img.height;
+          if (w > h) {
+            if (w > maxDim) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          } else {
+            if (h > maxDim) { w = Math.round(w * (maxDim / h)); h = maxDim; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(dataUrl);
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Extract OCR text from dataURL images using the bundled worker
+  async function extractOcrTexts(dataUrls, language = 'eng') {
+    if (!dataUrls || !dataUrls.length) return [];
+    const results = [];
+    for (let i = 0; i < dataUrls.length; i++) {
+      const dataUrl = dataUrls[i];
+      try {
+        const worker = new Worker('js/ocr-worker.js');
+        const text = await new Promise((resolve, reject) => {
+          const id = String(i);
+          const onMessage = (e) => {
+            const d = e.data;
+            if (!d) return;
+            if (d.type === 'success' && d.id === id) {
+              resolve(d.text || '');
+              cleanup();
+            } else if (d.type === 'error' && d.id === id) {
+              reject(new Error(d.error || 'OCR error'));
+              cleanup();
+            }
+          };
+          const onError = (ev) => { reject(new Error('Worker error')); cleanup(); };
+          const cleanup = () => {
+            worker.removeEventListener('message', onMessage);
+            worker.removeEventListener('error', onError);
+            try { worker.terminate(); } catch (e) {}
+          };
+          worker.addEventListener('message', onMessage);
+          worker.addEventListener('error', onError);
+          // send image data to worker
+          worker.postMessage({ type: 'process', imageData: dataUrl, language: language, id });
+          // safety timeout
+          setTimeout(() => {
+            reject(new Error('OCR timeout'));
+            cleanup();
+          }, 30000);
+        });
+        results.push(text.trim());
+      } catch (err) {
+        console.warn('OCR failed for image', i, err);
+        results.push('');
+      }
+    }
+    return results;
+  }
+
+  // Render attachment previews under the input and allow removal
+  function renderAttachmentPreview() {
+    let preview = document.getElementById('attachment-preview');
+    if (!preview) {
+      preview = document.createElement('div');
+      preview.id = 'attachment-preview';
+      preview.style.display = 'flex';
+      preview.style.gap = '8px';
+      preview.style.flexWrap = 'wrap';
+      preview.style.margin = '8px 0 6px 0';
+      chatInputContainer.insertBefore(preview, chatInputContainer.firstChild);
+    }
+    preview.innerHTML = '';
+    selectedImages.forEach((dataUrl, idx) => {
+      const holder = document.createElement('div');
+      holder.style.position = 'relative';
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.style.width = '96px';
+      img.style.height = '96px';
+      img.style.objectFit = 'cover';
+      img.style.borderRadius = '8px';
+      img.style.boxShadow = '0 1px 6px rgba(0,0,0,0.12)';
+      holder.appendChild(img);
+      const remove = document.createElement('button');
+      remove.textContent = '×';
+      remove.title = 'Remove image';
+      remove.style.position = 'absolute';
+      remove.style.top = '2px';
+      remove.style.right = '2px';
+      remove.style.background = 'rgba(0,0,0,0.6)';
+      remove.style.color = '#fff';
+      remove.style.border = 'none';
+      remove.style.borderRadius = '50%';
+      remove.style.width = '22px';
+      remove.style.height = '22px';
+      remove.style.cursor = 'pointer';
+      remove.onclick = (e) => { e.stopPropagation(); selectedImages.splice(idx, 1); renderAttachmentPreview(); };
+      holder.appendChild(remove);
+      preview.appendChild(holder);
+    });
+    // disable attach button if reached limit
+    if (attachBtn) attachBtn.disabled = selectedImages.length >= 5;
+  }
+
+  // Mostrar mensaje en el chat (soporta attachments)
+  function appendMessage(text, from, save = true, attachments = []) {
     const msg = document.createElement('div');
     msg.className = from === 'user' ? 'chat-msg-user' : 'chat-msg-ai';
     msg.style.alignSelf = from === 'user' ? 'flex-end' : 'flex-start';
@@ -516,37 +1009,106 @@ window.addEventListener('DOMContentLoaded', () => {
     msg.style.maxWidth = '80%';
     msg.style.fontSize = '1rem';
     msg.style.boxShadow = '0 2px 8px 0 rgba(0,0,0,0.04)';
-    msg.textContent = text;
+
+    if (text) {
+      const textNode = document.createElement('div');
+      textNode.textContent = text;
+      msg.appendChild(textNode);
+    }
+    if (attachments && attachments.length) {
+      const attachContainer = document.createElement('div');
+      attachContainer.style.display = 'flex';
+      attachContainer.style.flexWrap = 'wrap';
+      attachContainer.style.gap = '8px';
+      attachContainer.style.marginTop = text ? '8px' : '0';
+      attachments.forEach(att => {
+        const img = document.createElement('img');
+        img.src = att;
+        img.style.maxWidth = '240px';
+        img.style.maxHeight = '240px';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '8px';
+        img.style.boxShadow = '0 1px 6px rgba(0,0,0,0.12)';
+        attachContainer.appendChild(img);
+      });
+      msg.appendChild(attachContainer);
+    }
+
     chatMessagesContainer.appendChild(msg);
     chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-    // Guardar mensaje en el chat seleccionado
+    // Guardar mensaje en el chat seleccionado (incluye attachments)
     if (save && selectedChatId) {
       const chat = chats.find(c => c.id === selectedChatId);
       if (chat) {
         if (!chat.messages) chat.messages = [];
-        chat.messages.push({ text, from });
+        chat.messages.push({ text, from, attachments: attachments || [] });
         saveChats();
       }
     }
   }
 
   // Simular respuesta de IA (puedes reemplazar por llamada real a backend/AI)
-  function fakeAIResponse(userText) {
-    // Aquí puedes llamar a tu backend o IA real
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve('AI: ' + userText.split('').reverse().join(''));
-      }, 900);
-    });
+  // Llamada real a la API PHP para obtener respuesta de IA
+  // --- API PHP SIMULADA EN JS PARA PRUEBAS ---
+  // Simulación fiel de la lógica de api.php y OpenRouter
+  // Implementación directa de la API PHP en JS usando fetch a OpenRouter
+  async function callAIAPI(userText) {
+    const api_key = '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'; // SOLO PARA PRUEBAS
+    // Accept optional OCR summary and attachments as additional args
+    const args = Array.from(arguments);
+    const ocrSummary = args.length > 1 ? args[1] : '';
+    const attachments = args.length > 2 ? args[2] : [];
+
+    // Build multimodal content similar to app.js when attachments are present
+    // Add a system message to request responses in Spanish (helps avoid unexpected French replies)
+    const model = 'nvidia/nemotron-nano-12b-v2-vl:free';
+    let messages;
+    const systemMsg = { role: 'system', content: 'Eres un asistente útil. Responde en el idioma en que el usuario escriba. Si la entrada usa otro idioma, responde en el mismo idioma del usuario.' };
+    if (attachments && attachments.length) {
+      const content = [{ type: 'text', text: userText + (ocrSummary ? '\n\nAttached images OCR:\n' + ocrSummary : '') }];
+      for (const url of attachments) {
+        content.push({ type: 'image_url', image_url: { url } });
+      }
+      messages = [systemMsg, { role: 'user', content }];
+    } else {
+      const prompt = userText + (ocrSummary ? '\n\nAttached images OCR:\n' + ocrSummary : '');
+      messages = [systemMsg, { role: 'user', content: prompt }];
+    }
+    const data = { model, messages };
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + api_key,
+          'Content-Type': 'application/json',
+          'X-Title': 'AIWORK'
+        },
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      if (result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) {
+        return result.choices[0].message.content;
+      } else if (result.error) {
+        return 'Error: ' + result.error;
+      } else {
+        return 'AI: No response.';
+      }
+    } catch (e) {
+      return 'AI error: ' + e.message;
+    }
   }
+  window.callAIAPI = callAIAPI;
 
   // Message send handler
   async function handleSendMessage() {
+      aiResponsePending = true;
+    // Solución temporal: inicializar autoCreatedChat si no existe
+    if (typeof autoCreatedChat === 'undefined') window.autoCreatedChat = false;
     // Guardar el valor del input ANTES de limpiar
     const text = chatInput.value.trim();
-    if (!text) return;
-    // Esperar a que Firebase Auth esté listo
-    if (!firebaseAuthReady || typeof currentUser === 'undefined') {
+    if (!text && (!selectedImages || !selectedImages.length)) return;
+    // Esperar sólo si Firebase está presente y aún no está listo
+    if (window.firebase && firebase.auth && !firebaseAuthReady) {
       showMessage('Espere a que la autenticación esté lista.');
       return;
     }
@@ -558,49 +1120,175 @@ window.addEventListener('DOMContentLoaded', () => {
       showMessage('Please create a chat before sending messages.');
       return;
     }
+    // Si el div chat-messages no existe (porque no había mensajes), crearlo dinámicamente
+    let chatMessagesDiv = document.getElementById('chat-messages');
+    if (!chatMessagesDiv) {
+      // Crear el div y agregarlo antes del input
+      const chatInputContainer = document.getElementById('chat-input-container');
+      if (chatInputContainer) {
+        chatMessagesDiv = document.createElement('div');
+        chatMessagesDiv.id = 'chat-messages';
+        chatMessagesDiv.style.width = '100%';
+        chatMessagesDiv.style.maxWidth = '700px';
+        chatMessagesDiv.style.margin = '0 auto';
+        chatMessagesDiv.style.display = 'flex';
+        chatMessagesDiv.style.flexDirection = 'column';
+        chatMessagesDiv.style.gap = '12px';
+        chatMessagesDiv.style.padding = '32px 0 16px 0';
+        chatMessagesDiv.style.maxHeight = '480px';
+        chatMessagesDiv.style.minHeight = '220px';
+        chatMessagesDiv.style.overflowY = 'auto';
+        chatMessagesDiv.style.background = 'transparent';
+        chatMessagesDiv.style.scrollbarWidth = 'thin';
+        chatMessagesDiv.style.scrollbarColor = '#98a6a9 #232e36';
+        chatInputContainer.parentElement.insertBefore(chatMessagesDiv, chatInputContainer);
+        // Custom scrollbar for Webkit browsers
+        if (!document.getElementById('chat-messages-scrollbar-style')) {
+          const style = document.createElement('style');
+          style.id = 'chat-messages-scrollbar-style';
+          style.innerHTML = `
+            #chat-messages::-webkit-scrollbar {
+              width: 10px;
+              background: #232e36;
+              border-radius: 8px;
+            }
+            #chat-messages::-webkit-scrollbar-thumb {
+              background: #98a6a9;
+              border-radius: 8px;
+              min-height: 40px;
+            }
+            #chat-messages::-webkit-scrollbar-thumb:hover {
+              background: #ccd0cf;
+            }
+          `;
+          document.head.appendChild(style);
+        }
+      }
+      chatMessagesContainer = chatMessagesDiv;
+    } else {
+      chatMessagesContainer = chatMessagesDiv;
+    }
     // Hide main title with animation if visible
     if (mainTitleContainer && mainTitleContainer.style.display !== 'none') {
       hideMainTitleAnimated();
     }
-    appendMessage(text, 'user');
+    // Agregar mensaje del usuario (incluye attachments seleccionadas)
+    const attachmentsForSend = selectedImages.slice();
+    appendMessage(text, 'user', true, attachmentsForSend);
+    // Clear selected images and preview immediately (like text)
+    selectedImages = [];
+    const previewEl = document.getElementById('attachment-preview');
+    if (previewEl) previewEl.remove();
+    if (attachBtn) attachBtn.disabled = false;
+    // Guardar el chatId actual para asociar la respuesta de IA
+    const chatIdForAI = selectedChatId;
     // Si el chat fue creado automáticamente, actualizar el título en la lista si el usuario edita el primer mensaje (opcional)
     if (autoCreatedChat) {
       // Actualizar el título del chat en la UI sin recargar
-      const chat = chats.find(c => c.id === selectedChatId);
+      const chat = chats.find(c => c.id === chatIdForAI);
       if (chat) {
         chat.title = text;
         saveChats();
         renderChats();
       }
     }
-    // Mostrar mensaje de IA
-    appendMessage('...', 'ai', false);
-    const aiMsgDiv = chatMessagesContainer.lastChild;
-    const aiText = await fakeAIResponse(text);
-    aiMsgDiv.textContent = aiText;
-    // Guardar respuesta de IA en el chat
-    if (selectedChatId) {
-      const chat = chats.find(c => c.id === selectedChatId);
-      if (chat) {
-        if (!chat.messages) chat.messages = [];
-        chat.messages.push({ text: aiText, from: 'ai' });
-        saveChats();
+    // Show AI message placeholder in the correct chat
+    let aiMsgDiv = null;
+    if (selectedChatId === chatIdForAI && chatMessagesContainer) {
+      appendMessage('...', 'ai', false);
+      aiMsgDiv = chatMessagesContainer.lastChild;
+    }
+    // Extract OCR from attachments and include in prompt so the AI can "see" image text
+    let ocrTexts = [];
+    try {
+      ocrTexts = await extractOcrTexts(attachmentsForSend);
+    } catch (e) {
+      console.warn('OCR extraction error', e);
+    }
+    const ocrSummary = ocrTexts.filter(Boolean).map((t, idx) => `Image ${idx + 1} OCR:\n${t}`).join('\n\n');
+    const aiText = await callAIAPI(text, ocrSummary, attachmentsForSend);
+    aiResponsePending = false;
+    // Save AI response in the correct chat
+    const chatForAI = chats.find(c => c.id === chatIdForAI);
+    if (chatForAI) {
+      if (!chatForAI.messages) chatForAI.messages = [];
+      chatForAI.messages.push({ text: aiText, from: 'ai' });
+      saveChats();
+      // If user is still in this chat and placeholder exists, update it
+      if (selectedChatId === chatIdForAI && aiMsgDiv) {
+        aiMsgDiv.textContent = aiText;
+      } else if (selectedChatId === chatIdForAI) {
+        renderChatMessages();
+      } else {
+        // If user returns to this chat, force immediate render
+        const observer = new MutationObserver(() => {
+          if (selectedChatId === chatIdForAI) {
+            renderChatMessages();
+            observer.disconnect();
+          }
+        });
+        observer.observe(document.getElementById('chat-list'), { childList: true, subtree: true });
       }
     }
+
+    // Clear selected images and preview after sending
+    selectedImages = [];
+    const preview = document.getElementById('attachment-preview');
+    if (preview) preview.remove();
+    if (attachBtn) attachBtn.disabled = false;
   }
 
   // Enter key sends message
-  chatInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  });
+  if (chatInput) {
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        if (chatInput.disabled || !selectedChatId) {
+          e.preventDefault();
+          showMessage('Please create or select a chat before sending messages.');
+          return;
+        }
+        e.preventDefault();
+        handleSendMessage();
+      }
+    });
+  }
   // Send button click
-  if (sendBtn) sendBtn.addEventListener('click', handleSendMessage);
+  if (sendBtn) sendBtn.addEventListener('click', () => {
+    if (!sendBtn.disabled) handleSendMessage();
+  });
 
-  // Image, attach, mic buttons (show alert for now)
-  if (imageBtn) imageBtn.addEventListener('click', () => alert('Image upload not implemented.'));
-  if (attachBtn) attachBtn.addEventListener('click', () => alert('File attachment not implemented.'));
+  // Image/attach buttons: open hidden file input for images (max 5)
+  let fileInput = document.getElementById('file-attach-input');
+  if (!fileInput) {
+    fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.id = 'file-attach-input';
+    fileInput.accept = 'image/*';
+    fileInput.multiple = true;
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+  }
+  fileInput.onchange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const allow = Math.max(0, 5 - selectedImages.length);
+    if (files.length > allow) {
+      showMessage(`Solo puedes adjuntar hasta 5 imágenes. Se añadirán las primeras ${allow}.`);
+    }
+    const toProcess = files.slice(0, allow);
+    for (const f of toProcess) {
+      if (!f.type.startsWith('image/')) continue;
+      try {
+        const thumb = await createThumbnail(f, 240);
+        selectedImages.push(thumb);
+      } catch (err) {
+        console.warn('Thumbnail error', err);
+      }
+    }
+    renderAttachmentPreview();
+    fileInput.value = '';
+  };
+  if (imageBtn) imageBtn.addEventListener('click', () => fileInput.click());
+  if (attachBtn) attachBtn.addEventListener('click', () => fileInput.click());
   if (micBtn) micBtn.addEventListener('click', () => alert('Voice input not implemented.'));
 });

@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html>
   <head>
-	<script defer src="./injectScript.js"></script>
+  <!-- <script defer src="./injectScript.js"></script> -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no" />
     <meta charset="utf-8" />
     <link rel="stylesheet" href="globals.css" />
     <link rel="stylesheet" href="styleguide.css" />
+    <!-- ADVERTENCIA: No usar cdn.tailwindcss.com en producción. Instala Tailwind localmente para producción. -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       /** @type {import('tailwindcss').Config} */
@@ -31,70 +32,7 @@
       <div
         class="absolute top-0 left-0 w-full h-[57px] bg-[#ffffff14] border-b-[0.1px] [border-bottom-style:solid] border-[#ffffff7d] shadow-[0px_12px_50.3px_#00000040] backdrop-blur-[9.9px] backdrop-brightness-[100%] [-webkit-backdrop-filter:blur(9.9px)_brightness(100%)]"
       ></div>
-      <div class="flex flex-wrap items-center gap-2 px-2 py-px absolute top-2 right-4" id="firebase-auth-container">
-        <div id="firebase-profile" style="display:none;" class="flex items-center gap-2">
-          <img id="firebase-avatar" class="relative w-6 h-6 rounded-full bg-cover bg-[50%_50%]" src="" alt="Profile" />
-          <span id="firebase-name" class="relative font-body-base text-[#97a5a8]"></span>
-          <button id="firebase-logout-btn" class="ml-2 auth-btn auth-btn--ghost">Sign out</button>
-        </div>
-        <button id="firebase-login-btn" class="auth-top-btn auth-btn auth-btn--primary">Log in</button>
-        <button id="firebase-register-open-btn" class="auth-top-btn auth-btn auth-btn--secondary">Sign up</button>
-      </div>
-
-      <!-- Firebase SDKs -->
-      <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-app-compat.js"></script>
-      <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-auth-compat.js"></script>
-
-
-      <!-- Login modal (solo inicio de sesión) -->
-      <div id="firebase-login-modal" class="auth-modal">
-        <div class="auth-card auth-card-spaced">
-          <h2 class="auth-header">Log in</h2>
-          <div class="auth-fields">
-            <input id="login-email" class="auth-input" type="email" placeholder="Email" />
-            <input id="login-password" class="auth-input" type="password" placeholder="Password" />
-          </div>
-          <div class="auth-buttons">
-            <button id="firebase-email-login-btn" class="auth-btn auth-btn--primary" style="width:100%">Log in</button>
-            <button id="firebase-google-login-btn" class="auth-btn auth-btn--ghost" style="width:100%">Log in with Google</button>
-            <button id="firebase-close-login-modal" class="auth-btn auth-close" style="width:100%">Cancel</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Register modal (solo crear cuenta con email) -->
-      <div id="firebase-register-modal" class="auth-modal">
-        <div class="auth-card auth-card-spaced">
-          <h2 class="auth-header">Sign up</h2>
-          <div class="auth-fields">
-            <input id="register-email" class="auth-input" type="email" placeholder="Email" />
-            <input id="register-password" class="auth-input" type="password" placeholder="Password" />
-          </div>
-          <div class="auth-buttons">
-            <button id="firebase-register-submit-btn" class="auth-btn auth-btn--secondary" style="width:100%">Create account</button>
-            <button id="firebase-register-google-btn" class="auth-btn auth-btn--ghost" style="width:100%">Sign up with Google</button>
-            <button id="firebase-close-register-modal" class="auth-btn auth-close" style="width:100%">Cancel</button>
-          </div>
-        </div>
-      </div>
-    <style>
-      .auth-card-spaced {
-        padding: 2rem 1.5rem !important;
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-      }
-      .auth-fields {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-      }
-      .auth-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 0.7rem;
-      }
-    </style>
+      <!-- Login/signup UI removed -->
 
       <!-- Message modal (reemplaza alert) -->
       <div id="firebase-message-modal" class="auth-modal">
