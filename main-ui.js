@@ -73,8 +73,34 @@ let userChatsKey = null;
 let chatMessagesContainer = null; // Referencia global para mensajes
 let firebaseAuthReady = false;
 let aiResponsePending = false;
+let aiAbortController = null;
 // Selected images (data URLs) pending to be sent with the next message
 let selectedImages = [];
+
+// Persist AI pending state across reloads so we can show modal if page reloads
+function markAIPending(chatId) {
+  try {
+    localStorage.setItem('ai_response_pending', JSON.stringify({ pending: true, chatId: chatId, ts: Date.now() }));
+  } catch (e) {}
+}
+function clearAIPending() {
+  try { localStorage.removeItem('ai_response_pending'); } catch (e) {}
+}
+
+// Prevent accidental reload/navigation while AI response is pending
+window.addEventListener('beforeunload', (e) => {
+  try {
+    const pending = aiResponsePending || (JSON.parse(localStorage.getItem('ai_response_pending') || 'null') || {}).pending;
+    if (pending) {
+      const msg = 'An AI response is in progress. Reloading or leaving will cancel it.';
+      e.preventDefault();
+      e.returnValue = msg; // Chrome requires returnValue to be set
+      return msg;
+    }
+  } catch (err) {
+    // ignore
+  }
+});
 
 // --- Make saveChats and appendMessage globally accessible ---
 function saveChats() {
@@ -716,7 +742,7 @@ window.addEventListener('DOMContentLoaded', () => {
       box.style.textAlign = 'center';
 
       const txt = document.createElement('div');
-      txt.textContent = 'Hay una respuesta de la IA pendiente. ¿Forzar el cambio de chat? Se cancelará la respuesta pendiente.';
+      txt.textContent = 'There is a pending AI response. Force switching chats? This will cancel the pending response.';
       txt.style.marginBottom = '16px';
       box.appendChild(txt);
 
@@ -726,7 +752,7 @@ window.addEventListener('DOMContentLoaded', () => {
       btnRow.style.justifyContent = 'center';
 
       const cancelBtn = document.createElement('button');
-      cancelBtn.textContent = 'Esperar';
+      cancelBtn.textContent = 'Wait';
       cancelBtn.style.padding = '8px 16px';
       cancelBtn.style.borderRadius = '6px';
       cancelBtn.style.border = '1px solid #98a6a9';
@@ -735,20 +761,22 @@ window.addEventListener('DOMContentLoaded', () => {
       cancelBtn.onclick = () => { modal.remove(); };
 
       const forceBtn = document.createElement('button');
-      forceBtn.textContent = 'Forzar cambio';
+      forceBtn.textContent = 'Force switch';
       forceBtn.style.padding = '8px 16px';
       forceBtn.style.borderRadius = '6px';
       forceBtn.style.border = 'none';
       forceBtn.style.background = '#58587c';
       forceBtn.style.color = '#fff';
       forceBtn.onclick = () => {
-        // Cancel pending AI response state and remove AI placeholder if present
+        // Abort pending AI request (if any), clear pending state and placeholder
+        try { if (aiAbortController) aiAbortController.abort(); } catch (e) {}
         aiResponsePending = false;
         try {
           if (chatMessagesContainer && chatMessagesContainer.lastChild && chatMessagesContainer.lastChild.textContent === '...') {
             chatMessagesContainer.lastChild.remove();
           }
         } catch (e) {}
+        try { clearAIPending(); } catch (e) {}
         modal.remove();
         doSelect(chatId);
       };
@@ -766,6 +794,84 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function createNewChat() {
+    // If an AI response is pending, ask the user to wait or force create (which aborts the AI request)
+    if (aiResponsePending) {
+      let existing = document.getElementById('force-create-modal');
+      if (existing) existing.remove();
+      const modal = document.createElement('div');
+      modal.id = 'force-create-modal';
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100vw';
+      modal.style.height = '100vh';
+      modal.style.display = 'flex';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.background = 'rgba(0,0,0,0.35)';
+      modal.style.zIndex = 10002;
+
+      const box = document.createElement('div');
+      box.style.background = '#232e36';
+      box.style.color = '#ccd0cf';
+      box.style.padding = '20px';
+      box.style.borderRadius = '10px';
+      box.style.minWidth = '320px';
+      box.style.textAlign = 'center';
+
+      const txt = document.createElement('div');
+      txt.textContent = 'An AI response is in progress. Force creating a new chat? This will cancel the pending response.';
+      txt.style.marginBottom = '14px';
+      box.appendChild(txt);
+
+      const btnRow = document.createElement('div');
+      btnRow.style.display = 'flex';
+      btnRow.style.gap = '10px';
+      btnRow.style.justifyContent = 'center';
+
+      const waitBtn = document.createElement('button');
+      waitBtn.textContent = 'Wait';
+      waitBtn.style.padding = '8px 14px';
+      waitBtn.style.border = '1px solid #98a6a9';
+      waitBtn.style.background = '#232e36';
+      waitBtn.style.color = '#ccd0cf';
+      waitBtn.style.borderRadius = '6px';
+      waitBtn.onclick = () => { modal.remove(); };
+
+      const forceBtn = document.createElement('button');
+      forceBtn.textContent = 'Force creation';
+      forceBtn.style.padding = '8px 14px';
+      forceBtn.style.border = 'none';
+      forceBtn.style.background = '#e74c3c';
+      forceBtn.style.color = '#fff';
+      forceBtn.style.borderRadius = '6px';
+      forceBtn.onclick = () => {
+        try { if (aiAbortController) aiAbortController.abort(); } catch (e) {}
+        aiResponsePending = false;
+        try {
+          if (chatMessagesContainer && chatMessagesContainer.lastChild && chatMessagesContainer.lastChild.textContent === '...') {
+            chatMessagesContainer.lastChild.remove();
+          }
+        } catch (e) {}
+        try { clearAIPending(); } catch (e) {}
+        modal.remove();
+        // proceed to actually create the chat
+        if (!userChatsKey) userChatsKey = getChatsKeyForUser(currentUser);
+        const newChat = { id: 'chat_' + Date.now(), title: null, messages: [] };
+        chats.unshift(newChat);
+        selectedChatId = newChat.id;
+        saveChats();
+        renderChats();
+      };
+
+      btnRow.appendChild(waitBtn);
+      btnRow.appendChild(forceBtn);
+      box.appendChild(btnRow);
+      modal.appendChild(box);
+      document.body.appendChild(modal);
+      return;
+    }
+
     // Ensure we have a storage key (guest mode if no user)
     if (!userChatsKey) userChatsKey = getChatsKeyForUser(currentUser);
     // Create chat with title: null to show input (no focus/blur bug)
@@ -803,6 +909,90 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// If page was reloaded while an AI response was pending, show modal
+window.addEventListener('DOMContentLoaded', () => {
+  try {
+    const pending = JSON.parse(localStorage.getItem('ai_response_pending') || 'null');
+    if (pending && pending.pending) {
+      // Delay slightly to ensure chats/UI have been restored
+      setTimeout(() => {
+        try {
+          if (pending.chatId && chats && chats.some(c => c.id === pending.chatId)) {
+            selectedChatId = pending.chatId;
+            renderChats();
+            renderChatMessages();
+          }
+        } catch (e) {}
+        // Show a modal similar to the in-app force dialog
+        let existing = document.getElementById('reload-pending-modal');
+        if (existing) existing.remove();
+        const modal = document.createElement('div');
+        modal.id = 'reload-pending-modal';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100vw';
+        modal.style.height = '100vh';
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.background = 'rgba(0,0,0,0.35)';
+        modal.style.zIndex = 10003;
+
+        const box = document.createElement('div');
+        box.style.background = '#232e36';
+        box.style.color = '#ccd0cf';
+        box.style.padding = '20px';
+        box.style.borderRadius = '10px';
+        box.style.minWidth = '320px';
+        box.style.textAlign = 'center';
+
+        const txt = document.createElement('div');
+        txt.textContent = 'An AI response was in progress before reloading. The request may have been cancelled. Do you want to wait or cancel it?';
+        txt.style.marginBottom = '14px';
+        box.appendChild(txt);
+
+        const btnRow = document.createElement('div');
+        btnRow.style.display = 'flex';
+        btnRow.style.gap = '10px';
+        btnRow.style.justifyContent = 'center';
+
+        const waitBtn = document.createElement('button');
+        waitBtn.textContent = 'Wait';
+        waitBtn.style.padding = '8px 14px';
+        waitBtn.style.border = '1px solid #98a6a9';
+        waitBtn.style.background = '#232e36';
+        waitBtn.style.color = '#ccd0cf';
+        waitBtn.style.borderRadius = '6px';
+        waitBtn.onclick = () => { modal.remove(); };
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.padding = '8px 14px';
+        cancelBtn.style.border = 'none';
+        cancelBtn.style.background = '#e74c3c';
+        cancelBtn.style.color = '#fff';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.onclick = () => {
+          try { clearAIPending(); aiResponsePending = false; } catch (e) {}
+          try {
+            if (chatMessagesContainer && chatMessagesContainer.lastChild && chatMessagesContainer.lastChild.textContent === '...') {
+              chatMessagesContainer.lastChild.remove();
+            }
+          } catch (e) {}
+          modal.remove();
+        };
+
+        btnRow.appendChild(waitBtn);
+        btnRow.appendChild(cancelBtn);
+        box.appendChild(btnRow);
+        modal.appendChild(box);
+        document.body.appendChild(modal);
+      }, 60);
+    }
+  } catch (e) {}
+});
+
 // --- Chat Input and Message Send Logic ---
 window.addEventListener('DOMContentLoaded', () => {
   // Chat input elements
@@ -815,6 +1005,15 @@ window.addEventListener('DOMContentLoaded', () => {
   const micBtn = chatInputContainer.querySelector('button > img[alt="Voice input"]')?.parentElement;
   const mainTitleContainer = document.getElementById('main-title-container');
 
+  // Ensure the global message modal close button always works,
+  // even if Firebase code path didn't run. Some environments
+  // may not initialize the Firebase block, leaving the button
+  // without a handler.
+  const firebaseMessageCloseBtn = document.getElementById('firebase-message-close');
+  if (firebaseMessageCloseBtn) firebaseMessageCloseBtn.onclick = () => {
+    const modal = document.getElementById('firebase-message-modal');
+    if (modal) modal.style.display = 'none';
+  };
   // Mensajes del chat (simple, solo para UI)
   // Only create the chat-messages container when there is an active chat
   // with messages. If no chat is selected we avoid creating it so it
@@ -1072,29 +1271,92 @@ window.addEventListener('DOMContentLoaded', () => {
       messages = [systemMsg, { role: 'user', content }];
     } else {
       const prompt = userText + (ocrSummary ? '\n\nAttached images OCR:\n' + ocrSummary : '');
-      messages = [systemMsg, { role: 'user', content: prompt }];
+      // Always send user content as a multimodal array (text block),
+      // matching the shape used when attachments are present.
+      const userContent = [{ type: 'text', text: prompt }];
+      messages = [systemMsg, { role: 'user', content: userContent }];
     }
     const data = { model, messages };
+    // Use AbortController so requests can be cancelled (e.g. when user forces chat switch)
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      if (aiAbortController) {
+        try { aiAbortController.abort(); } catch (e) {}
+      }
+      aiAbortController = new AbortController();
+      const opts = {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + api_key,
           'Content-Type': 'application/json',
           'X-Title': 'AIWORK'
         },
-        body: JSON.stringify(data)
-      });
-      const result = await response.json();
-      if (result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) {
-        return result.choices[0].message.content;
-      } else if (result.error) {
-        return 'Error: ' + result.error;
-      } else {
-        return 'AI: No response.';
+        body: JSON.stringify(data),
+        signal: aiAbortController.signal
+      };
+
+      let response;
+      try {
+        response = await fetch('https://openrouter.ai/api/v1/chat/completions', opts);
+      } catch (err) {
+        // Network/CORS errors often surface as TypeError. Try a CORS-proxy fallback once.
+        if (err.name === 'AbortError') throw err;
+        try {
+          const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://openrouter.ai/api/v1/chat/completions');
+          response = await fetch(proxyUrl, opts);
+        } catch (err2) {
+          throw err; // rethrow original for outer catch
+        }
       }
+
+      if (!response) throw new Error('No response from AI endpoint');
+
+      // If proxy wrapped the response, it may be text; try to parse JSON safely
+      let result;
+      try { result = await response.json(); } catch (e) { result = null; }
+
+      if (response.status === 401) {
+        const msg = (result && result.error && result.error.message) ? result.error.message : 'Unauthorized (401)';
+        return 'AI error: ' + msg + '. Check the API key or use a backend proxy.';
+      }
+
+      // Try multiple known response shapes
+      if (result) {
+        // OpenAI-style: choices[].message.content
+        const choice = (result.choices && result.choices[0]) || null;
+        let content = choice?.message?.content || choice?.text || choice || null;
+        // If content is an array (multimodal), extract text pieces
+        if (Array.isArray(content)) {
+          const maybeText = content.map(item => {
+            if (typeof item === 'string') return item;
+            if (!item) return '';
+            return item.text || item.content || (item.message && item.message.content) || '';
+          }).join('\n').trim();
+          if (maybeText) return maybeText;
+        }
+        if (typeof content === 'string' && content.trim()) return content;
+
+        // Other possible keys
+        if (typeof result.output_text === 'string' && result.output_text.trim()) return result.output_text;
+        if (typeof result.response === 'string' && result.response.trim()) return result.response;
+        if (result.data && typeof result.data === 'object') {
+          const maybe = result.data.text || result.data.output || result.data.response;
+          if (typeof maybe === 'string' && maybe.trim()) return maybe;
+        }
+
+        // If there's an error object, surface it
+        if (result.error) return 'AI error: ' + (result.error.message || JSON.stringify(result.error));
+      }
+
+      if (!response.ok) return 'AI error: HTTP ' + response.status;
+
+      console.error('AI: unexpected empty response', { status: response.status, result });
+      return 'AI error: no response';
     } catch (e) {
+      if (e.name === 'AbortError') return 'AI cancelled';
       return 'AI error: ' + e.message;
+    } finally {
+      // clear controller after completion
+      try { aiAbortController = null; } catch (e) {}
     }
   }
   window.callAIAPI = callAIAPI;
@@ -1107,9 +1369,9 @@ window.addEventListener('DOMContentLoaded', () => {
     // Guardar el valor del input ANTES de limpiar
     const text = chatInput.value.trim();
     if (!text && (!selectedImages || !selectedImages.length)) return;
-    // Esperar sólo si Firebase está presente y aún no está listo
+    // Wait only if Firebase is present and not ready yet
     if (window.firebase && firebase.auth && !firebaseAuthReady) {
-      showMessage('Espere a que la autenticación esté lista.');
+      showMessage('Please wait for authentication to be ready.');
       return;
     }
     // Limpiar input inmediatamente tras leer el valor
@@ -1197,6 +1459,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (selectedChatId === chatIdForAI && chatMessagesContainer) {
       appendMessage('...', 'ai', false);
       aiMsgDiv = chatMessagesContainer.lastChild;
+      // Persist the pending AI state so we can detect page reloads
+      try { markAIPending(chatIdForAI); } catch (e) {}
     }
     // Extract OCR from attachments and include in prompt so the AI can "see" image text
     let ocrTexts = [];
@@ -1206,21 +1470,40 @@ window.addEventListener('DOMContentLoaded', () => {
       console.warn('OCR extraction error', e);
     }
     const ocrSummary = ocrTexts.filter(Boolean).map((t, idx) => `Image ${idx + 1} OCR:\n${t}`).join('\n\n');
-    const aiText = await callAIAPI(text, ocrSummary, attachmentsForSend);
-    aiResponsePending = false;
-    // Save AI response in the correct chat
+    let aiText = '';
+    try {
+      console.log('AI request start', { chatId: chatIdForAI });
+      // ensure pending marker is set (defensive)
+      try { markAIPending(chatIdForAI); } catch (e) {}
+      aiText = await callAIAPI(text, ocrSummary, attachmentsForSend);
+      console.log('AI response received', { chatId: chatIdForAI, aiText });
+    } catch (err) {
+      console.error('AI call failed', err);
+      aiText = 'AI error: ' + (err && err.message ? err.message : String(err));
+    } finally {
+      aiResponsePending = false;
+      try { clearAIPending(); } catch (e) {}
+    }
+    // Save AI response in the correct chat unless it was cancelled or an error placeholder
     const chatForAI = chats.find(c => c.id === chatIdForAI);
-    if (chatForAI) {
+    const isCancelled = aiText === 'AI cancelled';
+    const isAIError = typeof aiText === 'string' && aiText.startsWith('AI error:');
+    if (chatForAI && !isCancelled && !isAIError) {
       if (!chatForAI.messages) chatForAI.messages = [];
       chatForAI.messages.push({ text: aiText, from: 'ai' });
       saveChats();
-      // If user is still in this chat and placeholder exists, update it
+    }
+    // Update UI placeholder or render messages depending on outcome
+    if (isCancelled) {
+      // Remove placeholder silently
+      try { if (selectedChatId === chatIdForAI && aiMsgDiv) aiMsgDiv.remove(); } catch (e) {}
+    } else if (isAIError) {
+      // Show transient error in placeholder but do not save to chat history
       if (selectedChatId === chatIdForAI && aiMsgDiv) {
         aiMsgDiv.textContent = aiText;
       } else if (selectedChatId === chatIdForAI) {
         renderChatMessages();
       } else {
-        // If user returns to this chat, force immediate render
         const observer = new MutationObserver(() => {
           if (selectedChatId === chatIdForAI) {
             renderChatMessages();
@@ -1228,6 +1511,22 @@ window.addEventListener('DOMContentLoaded', () => {
           }
         });
         observer.observe(document.getElementById('chat-list'), { childList: true, subtree: true });
+      }
+    } else {
+      if (chatForAI) {
+        if (selectedChatId === chatIdForAI && aiMsgDiv) {
+          aiMsgDiv.textContent = aiText;
+        } else if (selectedChatId === chatIdForAI) {
+          renderChatMessages();
+        } else {
+          const observer = new MutationObserver(() => {
+            if (selectedChatId === chatIdForAI) {
+              renderChatMessages();
+              observer.disconnect();
+            }
+          });
+          observer.observe(document.getElementById('chat-list'), { childList: true, subtree: true });
+        }
       }
     }
 
@@ -1273,7 +1572,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!files.length) return;
     const allow = Math.max(0, 5 - selectedImages.length);
     if (files.length > allow) {
-      showMessage(`Solo puedes adjuntar hasta 5 imágenes. Se añadirán las primeras ${allow}.`);
+      showMessage(`You can attach up to 5 images. Only the first ${allow} will be added.`);
     }
     const toProcess = files.slice(0, allow);
     for (const f of toProcess) {
