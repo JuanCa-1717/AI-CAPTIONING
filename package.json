@@ -1,0 +1,13 @@
+{
+  "name": "ai-captioning",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo \"No build step\""
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
