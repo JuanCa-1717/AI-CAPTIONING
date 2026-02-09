@@ -807,9 +807,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Fallback local AI response so UI always shows something if API fails
   async function fakeAIResponse(userText) {
+    // Provide a helpful, non-echoing fallback message in Spanish
     return new Promise(resolve => {
       setTimeout(() => {
-        resolve('AI: ' + userText.split('').reverse().join(''));
+        const trimmed = (userText || '').trim();
+        if (!trimmed) {
+          resolve('Lo siento, no puedo generar una respuesta en este momento. Inténtalo de nuevo en unos segundos.');
+        } else {
+          resolve('Lo siento, no puedo conectar con el servicio de IA ahora. Por favor, inténtalo más tarde.');
+        }
       }, 700);
     });
   }
@@ -931,8 +937,15 @@ window.addEventListener('DOMContentLoaded', () => {
         if (aiMsgDiv) aiMsgDiv.textContent = 'cambiando a modelo de Ollama';
       };
       const historySnapshot = conversation.slice();
-      aiText = await callAIAPI(text, ocrSummary, attachmentsForSend, { onFallbackNotice, history: historySnapshot, webContext });
-      console.log('AI response received', { aiText });
+
+      // If no API keys are configured, skip the network call and show a clear message
+      if (!window.OPENROUTER_API_KEY && !window.OLLAMA_API_KEY) {
+        console.warn('AI keys not configured: OPENROUTER_API_KEY and OLLAMA_API_KEY are missing.');
+        aiText = 'Servicio de IA no configurado. Configure OPENROUTER_API_KEY o OLLAMA_API_KEY para habilitar respuestas de la IA.';
+      } else {
+        aiText = await callAIAPI(text, ocrSummary, attachmentsForSend, { onFallbackNotice, history: historySnapshot, webContext });
+        console.log('AI response received', { aiText });
+      }
     } catch (err) {
       console.error('AI call failed', err);
       aiText = 'AI error: ' + (err && err.message ? err.message : String(err));
