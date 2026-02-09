@@ -1087,7 +1087,61 @@ window.addEventListener('load', () => {
     });
   }
 
-  async function query(data, retries = 2, signal = null) {
+  const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+  // Load API keys from environment variables (set in .env or process.env)
+  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+  const OLLAMA_FALLBACK_KEY = process.env.OLLAMA_API_KEY || '';
+  const OLLAMA_FALLBACK_MODELS = [
+    'ollama/llava:13b',
+    'ollama/llava:7b',
+    'ollama/bakllava:7b'
+  ];
+
+  async function callOpenRouterChatCompletion(messages, model, apiKey, signal) {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'X-Title': 'AIWORK'
+      },
+      body: JSON.stringify({ model, messages }),
+      signal
+    });
+
+    const payloadText = await response.text().catch(() => null);
+    let payloadJson = null;
+    try { payloadJson = payloadText ? JSON.parse(payloadText) : null; } catch (e) { payloadJson = null; }
+
+    if (!response.ok) {
+      const errText = payloadJson?.error?.message || payloadJson?.error?.metadata?.raw || payloadText || `HTTP ${response.status}`;
+      const err = new Error(errText);
+      err.status = response.status;
+      throw err;
+    }
+
+    return payloadJson || {};
+  }
+
+  async function runOllamaFallback(data, signal, onFallbackNotice) {
+    if (typeof onFallbackNotice === 'function') {
+      try { onFallbackNotice(); } catch (e) { /* ignore */ }
+    }
+
+    let lastError = null;
+    for (const model of OLLAMA_FALLBACK_MODELS) {
+      try {
+        return await callOpenRouterChatCompletion(data.messages, model, OLLAMA_FALLBACK_KEY, signal);
+      } catch (err) {
+        if (err && err.name === 'AbortError') throw err;
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error('Ollama fallback failed.');
+  }
+
+  async function query(data, retries = 2, signal = null, options = {}) {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
           const response = await fetch("api.php", {
@@ -1097,6 +1151,7 @@ window.addEventListener('load', () => {
             },
             body: JSON.stringify({
               messages: data.messages,
+              model: data.model,
             }),
             signal
           });
@@ -1115,7 +1170,11 @@ window.addEventListener('load', () => {
           // Rate limit / upstream provider limited (429)
           if (response.status === 429) {
             const providerMsg = payloadJson?.error?.metadata?.raw || payloadText || 'Rate limited by provider.';
-            throw new Error(`Rate limited by provider (429). Suggestion: add your own OpenRouter API key in Profile or retry later. Provider message: ${providerMsg}`);
+            try {
+              return await runOllamaFallback(data, signal, options.onFallbackNotice);
+            } catch (fallbackError) {
+              throw new Error(`Rate limited by provider (429). Fallback failed: ${fallbackError.message}. Provider message: ${providerMsg}`);
+            }
           }
 
           // Provider-specific developer instruction disabled (Google models)
@@ -1244,9 +1303,15 @@ window.addEventListener('load', () => {
       const controller = new AbortController();
       currentAIController = controller;
       showGlobalLoading('start-btn');
+      const onFallbackNotice = () => {
+        aiOutput.classList.add('ai-output-loading');
+        aiOutput.value = 'cambiando a modelo de Ollama';
+        aiOutput.placeholder = '';
+      };
+
       let data;
       try {
-        data = await query({ messages, model }, 2, controller.signal);
+        data = await query({ messages, model }, 2, controller.signal, { onFallbackNotice });
       } finally {
         // hide overlay as soon as we have data or error
         hideGlobalLoading('start-btn');
@@ -1462,7 +1527,12 @@ window.addEventListener('load', () => {
 
         try {
           showGlobalLoading('text-generate-btn');
-          const data = await query({ messages, model });
+          const onFallbackNotice = () => {
+            textAiOutput.classList.add('ai-output-loading');
+            textAiOutput.value = 'cambiando a modelo de Ollama';
+            textAiOutput.placeholder = '';
+          };
+          const data = await query({ messages, model }, 2, null, { onFallbackNotice });
           hideGlobalLoading('text-generate-btn');
 
           if (data?.choices?.length && data.choices[0].message?.content) {
@@ -1909,7 +1979,15 @@ window.addEventListener('load', () => {
 
   // Show overlay while waiting for chat response
   showGlobalLoading('chat-send-btn');
-  const data = await query({ messages, model });
+  const onFallbackNotice = () => {
+    const textEl = typingMessage.querySelector('.message-text');
+    if (textEl) {
+      textEl.textContent = 'cambiando a modelo de Ollama';
+    } else {
+      typingMessage.textContent = 'cambiando a modelo de Ollama';
+    }
+  };
+  const data = await query({ messages, model }, 2, null, { onFallbackNotice });
   // Remove typing indicator
   chatMessages.removeChild(typingMessage);
   // Hide overlay after we get a response
@@ -2261,7 +2339,16 @@ window.addEventListener('load', () => {
 
   updateProgress(50, 'Sending to AI...');
   showGlobalLoading('pdf-analyze-btn');
-  const data = await query({ messages, model });
+  const onFallbackNotice = () => {
+    if (pdfCurrentTask) pdfCurrentTask.textContent = 'cambiando a modelo de Ollama';
+    if (pdfAiOutput) {
+      pdfAiOutput.value = 'cambiando a modelo de Ollama';
+    }
+    if (pdfAiSection) {
+      pdfAiSection.style.display = 'block';
+    }
+  };
+  const data = await query({ messages, model }, 2, null, { onFallbackNotice });
   hideGlobalLoading('pdf-analyze-btn');
   updateProgress(100, 'Complete!');
 
@@ -2511,7 +2598,15 @@ window.addEventListener('load', () => {
 
   console.log('Sending API request with:', { messages, model });
   showGlobalLoading('code-generate-btn');
-  const data = await query({ messages, model });
+  const onFallbackNotice = () => {
+    const codeElement = codeAiOutput?.querySelector('code');
+    if (codeElement) {
+      codeElement.textContent = 'cambiando a modelo de Ollama';
+    } else if (codeAiOutput) {
+      codeAiOutput.textContent = 'cambiando a modelo de Ollama';
+    }
+  };
+  const data = await query({ messages, model }, 2, null, { onFallbackNotice });
   hideGlobalLoading('code-generate-btn');
         console.log('API response received:', data);
 
