@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aiwork-v1.0.1';
+const CACHE_NAME = 'aiwork-v1.0.2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -53,11 +53,32 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache with network fallback
+  // Fetch event - serve from cache with network fallback
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') {
     return;
+  }
+
+  // Force network-first for main assets to avoid stale cached app shell
+  try {
+    const u = new URL(event.request.url);
+    if (u.pathname.endsWith('/main-ui.js') || u.pathname === '/' || u.pathname.endsWith('/index.html')) {
+      event.respondWith(
+        fetch(event.request)
+          .then((response) => {
+            if (response && response.status === 200) {
+              const copy = response.clone();
+              caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+            }
+            return response;
+          })
+          .catch(() => caches.match(event.request))
+      );
+      return;
+    }
+  } catch (e) {
+    // ignore URL parse errors
   }
 
   // Skip external API calls

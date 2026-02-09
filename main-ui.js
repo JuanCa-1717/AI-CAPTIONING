@@ -1,6 +1,6 @@
 // main-ui.js
 // All UI-related JavaScript moved from index.html
-console.log('main-ui.js loaded', { version: 'debug-search-1' });
+console.log('main-ui.js loaded');
 
 // --- Global modal message helper ---
 function showMessage(msg) {
@@ -576,87 +576,31 @@ window.addEventListener('DOMContentLoaded', () => {
     return results;
   }
 
-  async function fetchDuckDuckGoResults(query, maxResults = 5) {
-    const trimmed = (query || '').trim();
-    if (!trimmed) return [];
-    const needsNews = !/\bnoticias\b|\bnews\b/i.test(trimmed);
-    const enrichedQuery = needsNews ? `${trimmed} noticias` : trimmed;
-    console.log('Search: query', { original: trimmed, enriched: enrichedQuery });
-    const response = await fetch(`/search?q=${encodeURIComponent(enrichedQuery)}`, { method: 'GET' });
-    console.log('Search: response', { status: response.status });
-    if (!response.ok) throw new Error(`Search proxy error ${response.status}`);
-    const data = await response.json();
-    const results = Array.isArray(data.results) ? data.results : [];
-    console.log('Search: results', results);
-    return results.slice(0, maxResults);
-  }
-
-  // Render attachment previews under the input and allow removal
-  function renderAttachmentPreview() {
-    let preview = document.getElementById('attachment-preview');
-    if (!preview) {
-      preview = document.createElement('div');
-      preview.id = 'attachment-preview';
-      preview.style.display = 'flex';
-      preview.style.gap = '8px';
-      preview.style.flexWrap = 'wrap';
-      preview.style.margin = '8px 0 6px 0';
-      chatInputContainer.insertBefore(preview, chatInputContainer.firstChild);
-    }
-    preview.innerHTML = '';
-    selectedImages.forEach((dataUrl, idx) => {
-      const holder = document.createElement('div');
-      holder.style.position = 'relative';
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      img.style.width = '96px';
-      img.style.height = '96px';
-      img.style.objectFit = 'cover';
-      img.style.borderRadius = '8px';
-      img.style.boxShadow = '0 1px 6px rgba(0,0,0,0.12)';
-      holder.appendChild(img);
-      const remove = document.createElement('button');
-      remove.textContent = '×';
-      remove.title = 'Remove image';
-      remove.style.position = 'absolute';
-      remove.style.top = '2px';
-      remove.style.right = '2px';
-      remove.style.background = 'rgba(0,0,0,0.6)';
-      remove.style.color = '#fff';
-      remove.style.border = 'none';
-      remove.style.borderRadius = '50%';
-      remove.style.width = '22px';
-      remove.style.height = '22px';
-      remove.style.cursor = 'pointer';
-      remove.onclick = (e) => { e.stopPropagation(); selectedImages.splice(idx, 1); renderAttachmentPreview(); };
-      holder.appendChild(remove);
-      preview.appendChild(holder);
-    });
-    // disable attach button if reached limit
-    if (attachBtn) attachBtn.disabled = selectedImages.length >= 5;
-  }
-
   // Simular respuesta de IA (puedes reemplazar por llamada real a backend/AI)
   // Llamada real a la API PHP para obtener respuesta de IA
   // --- API PHP SIMULADA EN JS PARA PRUEBAS ---
   // Simulación fiel de la lógica de api.php y OpenRouter
   // Implementación directa de la API PHP en JS usando fetch a OpenRouter
   async function callAIAPI(userText, ocrSummary = '', attachments = [], options = {}) {
-    // API keys should be injected from backend or user input, not hardcoded in frontend code.
-    // Example: fetch from backend endpoint or prompt user for their key.
-    const api_key = window.OPENROUTER_API_KEY || '';
-    const fallback_key = window.OLLAMA_API_KEY || '';
-    const fallbackModels = [
-      'ollama/llava:13b',
-      'ollama/llava:7b',
-      'ollama/bakllava:7b'
-    ];
+    // API keys must not be in the browser. The frontend calls the backend `/api/ai` which
+    // forwards to the configured AI provider using server-side keys.
     const onFallbackNotice = options && options.onFallbackNotice;
 
     // Build conversation history with multimodal content for the latest user message
-    const model = 'nvidia/nemotron-nano-12b-v2-vl:free';
+    const model = 'gpt-4o-mini';
     const systemMsg = { role: 'system', content: 'Eres un asistente útil. Responde en el idioma en que el usuario escriba. Si la entrada usa otro idioma, responde en el mismo idioma del usuario. Usa SOLO las fuentes web proporcionadas cuando existan y NO inventes datos ni fechas. Organiza la respuesta en secciones cortas con viñetas. NO incluyas links en el cuerpo; solo en una seccion "Fuentes" con links claros. Usa links especificos a articulos, no a paginas de inicio. No te limites a un solo enfoque: cubre los puntos clave de forma breve y clara. Si no hay fuentes disponibles o las fuentes no son recientes, dilo.' };
-    const history = Array.isArray(options.history) ? options.history : [];
+    const rawHistory = Array.isArray(options.history) ? options.history : [];
+    // Remove previously stored AI fallback/error messages so they don't pollute
+    // the prompt sent to the upstream model (prevents loops where the model
+    // repeats "Servicio de IA no configurado" or similar fallbacks).
+    const history = rawHistory.filter(h => {
+      if (!h || !h.text) return false;
+      if (h.from !== 'ai') return true;
+      const t = String(h.text).trim();
+      // Common fallback/error fragments to exclude
+      const isFallback = /Servicio de IA no configurado|Lo siento, no puedo conectar|AI error:/i.test(t);
+      return !isFallback;
+    });
     const webContext = options.webContext && String(options.webContext).trim() ? String(options.webContext).trim() : '';
     const appendWebContext = (text) => {
       if (!webContext) return text;
@@ -723,25 +667,36 @@ window.addEventListener('DOMContentLoaded', () => {
       return '';
     }
 
-    async function fetchOpenRouter(apiKey, modelName) {
+    async function fetchOpenRouter(modelName) {
+      // Do not send API keys from the browser. Forward request to backend `/api/ai`.
       const opts = {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer ' + apiKey,
           'Content-Type': 'application/json',
           'X-Title': 'AIWORK'
         },
         body: JSON.stringify({ model: modelName, messages }),
-        signal: aiAbortController.signal
+        signal: aiAbortController ? aiAbortController.signal : undefined
       };
 
       let response;
       try {
-        response = await fetch('https://openrouter.ai/api/v1/chat/completions', opts);
+        console.log('fetchOpenRouter: starting request to /api/ai', { modelName });
+        const timeoutMs = 30000;
+        let timeoutId = null;
+        const fetchPromise = fetch('/api/ai', opts);
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => {
+            try { if (aiAbortController) aiAbortController.abort(); } catch (e) {}
+            reject(new Error('AI request timed out'));
+          }, timeoutMs);
+        });
+        response = await Promise.race([fetchPromise, timeoutPromise]);
+        if (timeoutId) clearTimeout(timeoutId);
       } catch (err) {
         if (err.name === 'AbortError') throw err;
-        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://openrouter.ai/api/v1/chat/completions');
-        response = await fetch(proxyUrl, opts);
+        console.error('Failed to reach backend /api/ai:', err);
+        throw err;
       }
 
       let result;
@@ -754,7 +709,7 @@ window.addEventListener('DOMContentLoaded', () => {
         try { aiAbortController.abort(); } catch (e) {}
       }
       aiAbortController = new AbortController();
-      const { response, result } = await fetchOpenRouter(api_key, model);
+      const { response, result } = await fetchOpenRouter(model);
       if (!response) throw new Error('No response from AI endpoint');
 
       if (response.status === 401) {
@@ -766,22 +721,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (typeof onFallbackNotice === 'function') {
           try { onFallbackNotice(); } catch (e) { /* ignore */ }
         }
-
-        let lastStatus = response.status;
-        for (const fallbackModel of fallbackModels) {
-          const { response: fbResponse, result: fbResult } = await fetchOpenRouter(fallback_key, fallbackModel);
-          if (fbResponse.status === 401) {
-            return 'AI error: Unauthorized (401). Check the API key or use a backend proxy.';
-          }
-          lastStatus = fbResponse.status;
-          if (!fbResponse.ok) continue;
-
-          const fbText = extractAIText(fbResult);
-          if (fbText) return fbText;
-          if (fbResult && fbResult.error) return 'AI error: ' + (fbResult.error.message || JSON.stringify(fbResult.error));
-        }
-
-        return 'AI error: HTTP ' + lastStatus;
+        return 'AI error: Rate limited (429). Please retry later.';
       }
 
       // Try multiple known response shapes
@@ -914,20 +854,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const ocrSummary = '';
     let webContext = '';
     let webResults = [];
-    try {
-      console.log('Search: start', { query: text });
-      webResults = await fetchDuckDuckGoResults(text, 5);
-      console.log('Search: done', { count: webResults.length });
-      if (webResults.length) {
-        webContext = webResults.map(item => {
-          const snippet = item.snippet ? ` (${item.snippet})` : '';
-          return `- ${item.title}: ${item.url}${snippet}`;
-        }).join('\n');
-      }
-    } catch (e) {
-      console.warn('Search: failed', e && e.message ? e.message : e);
-      console.warn('DuckDuckGo search failed', e);
-    }
+    // Removed DuckDuckGo search logic block
     let aiText = '';
     try {
       console.log('AI request start');
@@ -938,14 +865,8 @@ window.addEventListener('DOMContentLoaded', () => {
       };
       const historySnapshot = conversation.slice();
 
-      // If no API keys are configured, skip the network call and show a clear message
-      if (!window.OPENROUTER_API_KEY && !window.OLLAMA_API_KEY) {
-        console.warn('AI keys not configured: OPENROUTER_API_KEY and OLLAMA_API_KEY are missing.');
-        aiText = 'Servicio de IA no configurado. Configure OPENROUTER_API_KEY o OLLAMA_API_KEY para habilitar respuestas de la IA.';
-      } else {
-        aiText = await callAIAPI(text, ocrSummary, attachmentsForSend, { onFallbackNotice, history: historySnapshot, webContext });
-        console.log('AI response received', { aiText });
-      }
+      aiText = await callAIAPI(text, ocrSummary, attachmentsForSend, { onFallbackNotice, history: historySnapshot, webContext });
+      console.log('AI response received', { aiText });
     } catch (err) {
       console.error('AI call failed', err);
       aiText = 'AI error: ' + (err && err.message ? err.message : String(err));
@@ -1050,4 +971,61 @@ window.addEventListener('DOMContentLoaded', () => {
   if (imageBtn) imageBtn.addEventListener('click', () => fileInput.click());
   if (attachBtn) attachBtn.addEventListener('click', () => fileInput.click());
   if (micBtn) micBtn.addEventListener('click', () => alert('Voice input not implemented.'));
+
+  // Render preview of selected image attachments and allow removing them
+  function renderAttachmentPreview() {
+    try {
+      let preview = document.getElementById('attachment-preview');
+      const chatInputContainer = getChatInputContainer();
+      if (!chatInputContainer) return;
+      if (!preview) {
+        preview = document.createElement('div');
+        preview.id = 'attachment-preview';
+        preview.style.display = 'flex';
+        preview.style.gap = '8px';
+        preview.style.flexWrap = 'wrap';
+        preview.style.margin = '8px 0';
+        chatInputContainer.parentElement.insertBefore(preview, chatInputContainer);
+      }
+      preview.innerHTML = '';
+      selectedImages = selectedImages || [];
+      selectedImages.forEach((dataUrl, idx) => {
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.style.width = '120px';
+        img.style.height = '120px';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '8px';
+        img.style.boxShadow = '0 1px 6px rgba(0,0,0,0.12)';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = 'Remove attachment';
+        btn.innerText = '✕';
+        btn.style.position = 'absolute';
+        btn.style.top = '6px';
+        btn.style.right = '6px';
+        btn.style.background = 'rgba(0,0,0,0.55)';
+        btn.style.color = '#fff';
+        btn.style.border = 'none';
+        btn.style.borderRadius = '50%';
+        btn.style.width = '26px';
+        btn.style.height = '26px';
+        btn.style.cursor = 'pointer';
+        btn.onclick = () => {
+          try { selectedImages.splice(idx, 1); } catch (e) {}
+          renderAttachmentPreview();
+        };
+
+        wrapper.appendChild(img);
+        wrapper.appendChild(btn);
+        preview.appendChild(wrapper);
+      });
+    } catch (e) {
+      console.warn('renderAttachmentPreview error', e);
+    }
+  }
 });
