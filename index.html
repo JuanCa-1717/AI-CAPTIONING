@@ -43,64 +43,7 @@
       </div>
 
       <!-- Firebase logic moved to main-ui.js -->
-<<<<<<< HEAD
       <div id="main-content-wrapper" class="flex flex-col items-center justify-center h-full transition-all duration-300" style="padding-left: 0;">
-=======
-      <div
-        id="sidebar"
-        class="sidebar flex flex-col w-[22vw] min-w-[60px] max-w-[350px] h-[calc(100vh-57px)] items-start gap-6 px-4 py-8 absolute top-[57px] left-0 bg-[#ffffff0d] border-r-[0.2px] [border-right-style:solid] border-[#ffffffbf] shadow-[17px_8px_39.9px_#00000040] z-20"
-      >
-        <div id="sidebar-header" class="flex flex-row items-center w-full mt-4 mb-0.5 px-1 gap-2">
-          <button
-            id="menu-btn"
-            class="menu-button relative w-[20.5px] h-[14.5px] bg-[url(https://c.animaapp.com/mjmcwbk4IDVKoU/img/union.svg)] bg-[100%_100%] hover:opacity-80 transition-opacity cursor-pointer border-none p-0 z-30"
-            
-            aria-label="Toggle sidebar"
-            style="background-color: transparent;"
-          ></button>
-          <div class="flex-1"></div>
-          <button id="plus-btn" class="relative w-6 h-6 ml-2 mr-4 hover:opacity-80 transition-opacity cursor-pointer">
-            <img src="https://c.animaapp.com/mjmcwbk4IDVKoU/img/plus-circle.svg" alt="New chat" />
-          </button>
-        </div>
-        <style>
-          .sidebar.collapsed #sidebar-header {
-            justify-content: center !important;
-          }
-          .sidebar.collapsed #menu-btn {
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-          }
-          .sidebar.collapsed #plus-btn {
-            display: none !important;
-          }
-        </style>
-        <div class="sidebar-content flex flex-col w-full gap-6">
-          <img
-            class="relative w-60 h-px mt-[-0.50px] object-cover"
-            src="https://c.animaapp.com/mjmcwbk4IDVKoU/img/vector-1.svg"
-          />
-          <!-- Botón + eliminado de aquí, ahora está junto al menú hamburguesa -->
-          <div class="relative w-full h-[244px]">
-            <div class="flex flex-col w-[316px] items-start gap-2 absolute top-8 left-0">
-            <div class="flex flex-col items-center justify-center gap-2.5 relative self-stretch w-full flex-[0_0_auto]">
-              <div
-                class="relative self-stretch mt-[-1.00px] font-body-small-strong font-[number:var(--body-small-strong-font-weight)] text-[#98a6a9] text-[length:var(--body-small-strong-font-size)] tracking-[var(--body-small-strong-letter-spacing)] leading-[var(--body-small-strong-line-height)] [font-style:var(--body-small-strong-font-style)]"
-              >
-                Chats
-              </div>
-            </div>
-            <div class="flex flex-col items-start gap-2 relative self-stretch w-full flex-[0_0_auto]">
-              <div id="chat-list" class="flex flex-col items-start gap-2 relative self-stretch w-full flex-[0_0_auto]">
-                <!-- Chats will be rendered here by JS -->
-              </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="main-content-wrapper" class="flex flex-col items-center justify-center h-full transition-all duration-300" style="padding-left: 22vw;">
->>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
         <div id="main-title-container" class="flex flex-col items-center justify-center w-full px-2" style="height: 40vh;">
           <p
             class="w-full text-center [-webkit-text-stroke:1px_#98a6a9] [font-family:'Spinnaker',Helvetica] font-normal text-[#9aa8ab] text-2xl md:text-4xl lg:text-5xl tracking-[0] leading-tight whitespace-normal"
@@ -120,11 +63,7 @@
               class="relative self-stretch h-[18px] [font-family:'Inter',Helvetica] font-normal text-[#ccd0cf] text-base tracking-[0] leading-6 bg-transparent border-none outline-none placeholder:text-[#ccd0cf]"
             />
             <div class="flex items-end justify-between relative self-stretch w-full flex-[0_0_auto]">
-<<<<<<< HEAD
               <div class="flex w-[136px] h-[32px] items-center gap-1 relative">
-=======
-              <div class="flex w-[100px] h-[32px] items-center gap-1 relative">
->>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
                 <button class="flex w-8 h-8 items-center justify-center p-1 relative rounded-full overflow-hidden hover:bg-[#ffffff1a] transition-colors cursor-pointer">
                   <img class="relative w-4 h-4" src="https://c.animaapp.com/mjmcwbk4IDVKoU/img/image.svg" alt="Upload image" />
                 </button>
@@ -134,7 +73,6 @@
                 <button class="flex w-8 h-8 items-center justify-center p-1 relative rounded-full overflow-hidden hover:bg-[#ffffff1a] transition-colors cursor-pointer">
                   <img class="relative w-4 h-4" src="https://c.animaapp.com/mjmcwbk4IDVKoU/img/mic.svg" alt="Voice input" />
                 </button>
-<<<<<<< HEAD
                 <button id="clear-conversation-btn" class="flex w-9 h-9 items-center justify-center p-1 relative rounded-full overflow-hidden hover:bg-[#ffffff1a] transition-colors cursor-pointer text-[#c5cdd1]" title="Clear conversation" aria-label="Clear conversation">
                   <svg class="relative w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 6h18" />
@@ -144,8 +82,6 @@
                     <path d="M14 11v6" />
                   </svg>
                 </button>
-=======
->>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
               </div>
               <button class="relative flex-[0_0_auto] w-12 h-12 flex items-center justify-center hover:opacity-80 transition-opacity cursor-pointer">
                 <img class="w-7 h-7" src="https://c.animaapp.com/mjmcwbk4IDVKoU/img/icon-button.svg" alt="Send message" />
