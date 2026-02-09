@@ -1087,6 +1087,7 @@ window.addEventListener('load', () => {
     });
   }
 
+<<<<<<< HEAD
   const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
   // Load API keys from environment variables (set in .env or process.env)
   const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
@@ -1142,6 +1143,9 @@ window.addEventListener('load', () => {
   }
 
   async function query(data, retries = 2, signal = null, options = {}) {
+=======
+  async function query(data, retries = 2, signal = null) {
+>>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
           const response = await fetch("api.php", {
@@ -1151,7 +1155,10 @@ window.addEventListener('load', () => {
             },
             body: JSON.stringify({
               messages: data.messages,
+<<<<<<< HEAD
               model: data.model,
+=======
+>>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
             }),
             signal
           });
@@ -1170,11 +1177,15 @@ window.addEventListener('load', () => {
           // Rate limit / upstream provider limited (429)
           if (response.status === 429) {
             const providerMsg = payloadJson?.error?.metadata?.raw || payloadText || 'Rate limited by provider.';
+<<<<<<< HEAD
             try {
               return await runOllamaFallback(data, signal, options.onFallbackNotice);
             } catch (fallbackError) {
               throw new Error(`Rate limited by provider (429). Fallback failed: ${fallbackError.message}. Provider message: ${providerMsg}`);
             }
+=======
+            throw new Error(`Rate limited by provider (429). Suggestion: add your own OpenRouter API key in Profile or retry later. Provider message: ${providerMsg}`);
+>>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
           }
 
           // Provider-specific developer instruction disabled (Google models)
@@ -1303,6 +1314,7 @@ window.addEventListener('load', () => {
       const controller = new AbortController();
       currentAIController = controller;
       showGlobalLoading('start-btn');
+<<<<<<< HEAD
       const onFallbackNotice = () => {
         aiOutput.classList.add('ai-output-loading');
         aiOutput.value = 'cambiando a modelo de Ollama';
@@ -1312,6 +1324,11 @@ window.addEventListener('load', () => {
       let data;
       try {
         data = await query({ messages, model }, 2, controller.signal, { onFallbackNotice });
+=======
+      let data;
+      try {
+        data = await query({ messages, model }, 2, controller.signal);
+>>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
       } finally {
         // hide overlay as soon as we have data or error
         hideGlobalLoading('start-btn');
@@ -1527,12 +1544,16 @@ window.addEventListener('load', () => {
 
         try {
           showGlobalLoading('text-generate-btn');
+<<<<<<< HEAD
           const onFallbackNotice = () => {
             textAiOutput.classList.add('ai-output-loading');
             textAiOutput.value = 'cambiando a modelo de Ollama';
             textAiOutput.placeholder = '';
           };
           const data = await query({ messages, model }, 2, null, { onFallbackNotice });
+=======
+          const data = await query({ messages, model });
+>>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
           hideGlobalLoading('text-generate-btn');
 
           if (data?.choices?.length && data.choices[0].message?.content) {
@@ -1979,6 +2000,7 @@ window.addEventListener('load', () => {
 
   // Show overlay while waiting for chat response
   showGlobalLoading('chat-send-btn');
+<<<<<<< HEAD
   const onFallbackNotice = () => {
     const textEl = typingMessage.querySelector('.message-text');
     if (textEl) {
@@ -1988,6 +2010,9 @@ window.addEventListener('load', () => {
     }
   };
   const data = await query({ messages, model }, 2, null, { onFallbackNotice });
+=======
+  const data = await query({ messages, model });
+>>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
   // Remove typing indicator
   chatMessages.removeChild(typingMessage);
   // Hide overlay after we get a response
@@ -2339,6 +2364,7 @@ window.addEventListener('load', () => {
 
   updateProgress(50, 'Sending to AI...');
   showGlobalLoading('pdf-analyze-btn');
+<<<<<<< HEAD
   const onFallbackNotice = () => {
     if (pdfCurrentTask) pdfCurrentTask.textContent = 'cambiando a modelo de Ollama';
     if (pdfAiOutput) {
@@ -2349,6 +2375,9 @@ window.addEventListener('load', () => {
     }
   };
   const data = await query({ messages, model }, 2, null, { onFallbackNotice });
+=======
+  const data = await query({ messages, model });
+>>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
   hideGlobalLoading('pdf-analyze-btn');
   updateProgress(100, 'Complete!');
 
@@ -2598,6 +2627,7 @@ window.addEventListener('load', () => {
 
   console.log('Sending API request with:', { messages, model });
   showGlobalLoading('code-generate-btn');
+<<<<<<< HEAD
   const onFallbackNotice = () => {
     const codeElement = codeAiOutput?.querySelector('code');
     if (codeElement) {
@@ -2607,6 +2637,9 @@ window.addEventListener('load', () => {
     }
   };
   const data = await query({ messages, model }, 2, null, { onFallbackNotice });
+=======
+  const data = await query({ messages, model });
+>>>>>>> 593d18453bbde42821e00a6c50b732ee41136e60
   hideGlobalLoading('code-generate-btn');
         console.log('API response received:', data);
 
